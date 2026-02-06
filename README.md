@@ -59,13 +59,13 @@
 
 4. **Set up database:**
    ```bash
-   npx prisma generate
-   npx prisma migrate dev
+   pnpm prisma generate
+   pnpm prisma migrate dev
    ```
 
 5. **Seed initial categories (optional):**
    ```bash
-   # You can add categories via API or directly in database
+   pnpm db:seed (or pnpm run db:seed)
    ```
 
 6. **Run development server:**

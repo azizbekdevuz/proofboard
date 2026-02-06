@@ -2,7 +2,7 @@
 
 import { Button } from '@worldcoin/mini-apps-ui-kit-react';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 
 interface Question {
   id: string;
