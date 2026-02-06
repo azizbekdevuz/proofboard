@@ -5,112 +5,191 @@ import { verifyCloudProof, IVerifyResponse, ISuccessResult } from "@worldcoin/mi
 
 export async function POST(req: NextRequest) {
   const session = await auth();
-  if (!session?.user?.walletAddress) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const wallet = session?.user?.walletAddress;
+
+  console.log('ACCEPT_ANSWER request:', {
+    hasSession: !!session,
+    wallet: wallet || '(missing)',
+  });
+
+  if (!wallet) {
+    return NextResponse.json({ 
+      error: "unauthorized",
+      message: "Authentication required. Please sign in with World App.",
+    }, { status: 401 });
   }
 
-  const { questionId, answerId, proof } = await req.json();
-  if (!questionId || !answerId) {
-    return NextResponse.json({ error: "bad_request" }, { status: 400 });
+  const body = await req.json();
+  const { questionId, answerId, proof, signal } = body;
+
+  console.log('ACCEPT_ANSWER body:', {
+    hasQuestionId: !!questionId,
+    hasAnswerId: !!answerId,
+    hasProof: !!proof,
+    hasSignal: !!signal,
+  });
+
+  // Validate required fields
+  const missing: Record<string, boolean> = {};
+  if (!questionId) missing.questionId = true;
+  if (!answerId) missing.answerId = true;
+  if (!proof) missing.proof = true;
+  if (!signal) missing.signal = true;
+
+  if (Object.keys(missing).length > 0) {
+    return NextResponse.json({ 
+      error: "bad_request",
+      message: "Missing required fields",
+      missing,
+    }, { status: 400 });
   }
 
-  // Verify World ID proof (required for accepting answers)
-  if (!proof) {
-    return NextResponse.json(
-      { error: "verification_required", message: "World ID verification required to accept answers" },
-      { status: 403 }
-    );
+  // Validate signal is non-empty string
+  if (typeof signal !== 'string' || signal.trim().length === 0) {
+    return NextResponse.json({
+      error: "missing_signal",
+      message: "Signal must be a non-empty string",
+    }, { status: 400 });
   }
 
+  // Get action ID
   const action = process.env.NEXT_PUBLIC_ACTION_ACCEPT_ANSWER;
   if (!action) {
-    return NextResponse.json({ error: "server_error", message: "Action ID not configured" }, { status: 500 });
+    console.error('ACTION_ACCEPT_ANSWER not configured');
+    return NextResponse.json({ 
+      error: "server_error",
+      message: "Action ID not configured"
+    }, { status: 500 });
   }
 
   const app_id = process.env.APP_ID as `app_${string}`;
   if (!app_id) {
-    return NextResponse.json({ error: "server_error", message: "APP_ID not configured" }, { status: 500 });
+    console.error('APP_ID not configured');
+    return NextResponse.json({ 
+      error: "server_error",
+      message: "APP_ID not configured"
+    }, { status: 500 });
   }
 
   // Verify the proof server-side
-  const verifyRes = (await verifyCloudProof(
-    proof as ISuccessResult,
-    app_id,
+  const signalParam = signal && signal.trim().length > 0 ? signal : undefined;
+  
+  console.log('Verifying proof for accept:', {
     action,
-    questionId // Use questionId as signal
-  )) as IVerifyResponse;
-
-  if (!verifyRes.success) {
-    const errorMessage = (verifyRes as any).error || "World ID verification failed. You may have reached your limit or the proof is invalid.";
-    return NextResponse.json(
-      {
-        error: "verification_failed",
-        message: errorMessage,
-      },
-      { status: 400 }
-    );
-  }
-
-  // Anti-replay: check if nullifier was already used
-  const nullifier = (verifyRes as any).nullifier_hash ?? (proof as ISuccessResult).nullifier_hash;
-  const existingProof = await db.actionProof.findFirst({
-    where: {
-      action,
-      nullifier,
-    },
+    signal: signalParam || '(none)',
+    hasNullifier: !!(proof as ISuccessResult).nullifier_hash,
   });
 
-  if (existingProof) {
-    return NextResponse.json(
-      {
-        error: "already_used",
-        message: "This verification has already been used. Please verify again.",
-      },
-      { status: 400 }
-    );
-  }
-
-  // Store the proof to prevent replay
+  let verifyRes: IVerifyResponse;
   try {
-    await db.actionProof.create({ data: { action, nullifier } });
-  } catch (error) {
-    // Race condition: another request used this proof
-    return NextResponse.json(
-      {
-        error: "already_used",
-        message: "This verification has already been used.",
-      },
-      { status: 400 }
-    );
+    verifyRes = (await verifyCloudProof(
+      proof as ISuccessResult,
+      app_id,
+      action,
+      signalParam
+    )) as IVerifyResponse;
+  } catch (error: any) {
+    console.error('verifyCloudProof error:', error);
+    return NextResponse.json({
+      error: "verification_failed",
+      message: error?.message || "Proof verification failed",
+    }, { status: 400 });
   }
 
-  // Check ownership and accept answer
-  const wallet = session.user.walletAddress;
+  if (!verifyRes.success) {
+    const errorCode = (verifyRes as any).code || (verifyRes as any).error_code;
+    console.error('Verification failed:', { errorCode, verifyRes });
+    return NextResponse.json({
+      error: "verification_failed",
+      code: errorCode,
+      message: (verifyRes as any).detail || "World ID verification failed",
+    }, { status: 400 });
+  }
 
+  // Extract nullifier
+  const nullifier = (verifyRes as any).nullifier_hash ?? (proof as ISuccessResult).nullifier_hash;
+  if (!nullifier) {
+    console.error('Nullifier missing from verification response');
+    return NextResponse.json({
+      error: "invalid_proof",
+      message: "Proof missing nullifier hash",
+    }, { status: 400 });
+  }
+
+  console.log('Verification successful, nullifier:', nullifier);
+
+  // Check ownership first (before consuming verification attempt)
   const q = await db.question.findUnique({
     where: { id: questionId },
     include: { user: true },
   });
+  
   if (!q) {
-    return NextResponse.json({ error: "not_found" }, { status: 404 });
+    return NextResponse.json({ 
+      error: "not_found",
+      message: "Question not found",
+    }, { status: 404 });
   }
+  
   if (q.user.wallet !== wallet) {
-    return NextResponse.json(
-      { error: "forbidden", message: "Only the question owner can accept answers" },
-      { status: 403 }
-    );
+    return NextResponse.json({
+      error: "forbidden",
+      message: "Only the question owner can accept answers",
+    }, { status: 403 });
   }
 
-  const updated = await db.question.update({
-    where: { id: questionId },
-    data: { acceptedId: answerId },
-    include: {
-      user: { select: { username: true, wallet: true } },
-      answers: {
-        include: { user: { select: { username: true } } },
-      },
-    },
-  });
+  // Atomic transaction: store nullifier + accept answer
+  try {
+    const result = await db.$transaction(async (tx) => {
+      // 1. Store nullifier (anti-replay protection)
+      // Schema: @@unique([action, nullifier, signal])
+      try {
+        await tx.actionProof.create({
+          data: { action, nullifier, signal },
+        });
+        console.log('ActionProof stored:', { action, nullifier, signal });
+      } catch (error: any) {
+        if (error.code === 'P2002') {
+          // Unique constraint violation = replay for this specific (action, nullifier, signal)
+          throw new Error('REPLAY_DETECTED');
+        }
+        throw error;
+      }
 
-  return NextResponse.json(updated);
+      // 2. Accept answer
+      const updated = await tx.question.update({
+        where: { id: questionId },
+        data: { acceptedId: answerId },
+        include: {
+          user: { select: { username: true, wallet: true } },
+          answers: {
+            include: { user: { select: { username: true } } },
+          },
+        },
+      });
+
+      return updated;
+    });
+
+    console.log('Answer accepted successfully:', answerId);
+    return NextResponse.json(result);
+
+  } catch (error: any) {
+    if (error.message === 'REPLAY_DETECTED') {
+      console.warn('Replay attempt detected:', { action, nullifier, signal });
+      return NextResponse.json({
+        error: "replay_or_already_used",
+        message: "Already accepted. This answer has already been accepted for this question.",
+        action,
+        signal,
+      }, { status: 409 });
+    }
+
+    console.error('Transaction failed:', error);
+    return NextResponse.json({
+      error: "server_error",
+      message: "Failed to accept answer",
+      details: error.message,
+    }, { status: 500 });
+  }
 }

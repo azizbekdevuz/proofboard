@@ -52,10 +52,12 @@
 3. **Create Incognito Actions in Developer Portal:**
    - Go to [developer.worldcoin.org](https://developer.worldcoin.org)
    - Navigate to your app → Incognito Actions
-   - Create three actions:
-     - `proofboard_post_question` (limit: 1 per user per category per day)
-     - `proofboard_post_answer` (limit: 5 per user per day)
-     - `proofboard_accept_answer` (limit: 1 per question)
+   - Create three actions with **INCREASED LIMITS** for demo:
+     - `proofboard_post_question` - **Recommended: 10 per day** (not 1 per user!)
+     - `proofboard_post_answer` - **Recommended: 20 per day**
+     - `proofboard_accept_answer` - **Recommended: 10 per day**
+   
+   ⚠️ **IMPORTANT**: The default "1 per user" limit is too restrictive for a Q&A system. Users need to post multiple questions/answers. Set limits to at least 10 per day for testing and demos.
 
 4. **Set up database:**
    ```bash
@@ -92,6 +94,28 @@
 | `NEXTAUTH_URL` | Base URL of your app | ✅ |
 | `HMAC_SECRET_KEY` | Secret for nonce signing | ✅ |
 | `WORLD_API_KEY` | World API key (if needed) | ❌ |
+
+## Architecture: Atomic Verification + Write
+
+**Critical Design Decision**: To prevent wasting World ID verification attempts when database writes fail, we use an **atomic transaction pattern**:
+
+1. **Client**: Gets World ID proof from MiniKit (no server verification yet)
+2. **Client**: Sends proof + data to action route (e.g., `/api/questions`)
+3. **Server**: In a single Prisma transaction:
+   - Verifies proof with `verifyCloudProof`
+   - Stores nullifier (anti-replay)
+   - Performs the write (create question/answer/accept)
+4. **Result**: If ANY step fails, the entire transaction rolls back
+   - ✅ No wasted verification attempts
+   - ✅ No "verified but failed to create" errors
+   - ✅ Replay protection is atomic with the action
+
+**Error Codes**:
+- `401` - Unauthorized (no session)
+- `400` - Bad request (missing fields, validation failed)
+- `403` - Forbidden (not question owner, etc)
+- `409` - Replay (proof already used)
+- `500` - Server error
 
 ## API Routes
 

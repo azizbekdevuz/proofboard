@@ -1,10 +1,10 @@
 'use client';
 
 import { Button } from '@worldcoin/mini-apps-ui-kit-react';
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { ComposeAnswer } from '@/components/ComposeAnswer';
 import { useSession } from 'next-auth/react';
-import { verifyAndConsume } from '@/components/verify';
+import { getWorldIDProof } from '@/components/verify';
 
 interface Question {
   id: string;
@@ -76,7 +76,7 @@ export const QuestionCard = ({ question, onAnswerPosted }: QuestionCardProps) =>
       </div>
 
       {/* Answers */}
-      {question.answers.length > 0 && (
+      {question.answers.length > 0 ? (
         <div className="mb-4 space-y-2">
           <p className="text-sm font-semibold text-gray-700 mb-2">
             {question.answers.length} Answer{question.answers.length !== 1 ? 's' : ''}:
@@ -103,6 +103,12 @@ export const QuestionCard = ({ question, onAnswerPosted }: QuestionCardProps) =>
               </div>
             </div>
           ))}
+        </div>
+      ) : (
+        <div className="mb-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
+          <p className="text-sm text-gray-500 text-center">
+            ⏳ Waiting for answers... Be the first to help!
+          </p>
         </div>
       )}
 
@@ -156,9 +162,24 @@ const AcceptAnswerButton = ({
   const [isAccepting, setIsAccepting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Single-flight lock: prevent multiple simultaneous accept requests
+  const isAcceptingRef = useRef(false);
+
   const handleAccept = async (answerId: string) => {
+    // Single-flight lock check
+    if (isAcceptingRef.current) {
+      console.warn('Accept already in progress, ignoring duplicate click');
+      return;
+    }
+
+    // Set single-flight lock IMMEDIATELY
+    isAcceptingRef.current = true;
     setIsAccepting(true);
     setError(null);
+
+    // Generate unique request ID for tracking
+    const requestId = `acc-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    console.log(`[${requestId}] Starting accept answer`);
 
     try {
       const action = process.env.NEXT_PUBLIC_ACTION_ACCEPT_ANSWER;
@@ -166,33 +187,57 @@ const AcceptAnswerButton = ({
         throw new Error('Action ID not configured');
       }
 
-      const proof = await verifyAndConsume(action, questionId);
+      // Signal strategy: questionId only (one accept per question)
+      const signal = questionId;
+
+      console.log(`[${requestId}] Getting World ID proof for accept with action:`, action, 'signal:', signal);
+      
+      // Get FRESH proof from MiniKit (never reuse proofs)
+      const proof = await getWorldIDProof(action, signal);
+      
+      // Log proof details before sending
+      console.log(`[${requestId}] Got proof - nullifier:`, proof.nullifier_hash, 'signal:', signal);
 
       const res = await fetch('/api/accept', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-rid': requestId, // Request ID for server-side tracking
+        },
         body: JSON.stringify({
           questionId,
           answerId,
           proof,
+          signal, // Must match what was used during proof generation
         }),
       });
 
       const data = await res.json();
 
       if (!res.ok) {
+        console.error(`[${requestId}] Server error:`, data);
+        if (data.error === 'replay' || data.error === 'replay_or_already_used') {
+          throw new Error('Already accepted. This answer has already been accepted for this question.');
+        }
+        if (data.error === 'missing_signal') {
+          throw new Error('Signal validation failed. Please try again.');
+        }
         throw new Error(data.message || data.error || 'Failed to accept answer');
       }
 
+      console.log(`[${requestId}] Answer accepted successfully`);
+
       onAccepted();
     } catch (err) {
-      console.error('Failed to accept answer:', err);
+      console.error(`[${requestId}] Failed to accept answer:`, err);
       setError(
         err instanceof Error
           ? err.message
           : 'Failed to accept answer. Please try again.',
       );
     } finally {
+      // Release single-flight lock
+      isAcceptingRef.current = false;
       setIsAccepting(false);
     }
   };

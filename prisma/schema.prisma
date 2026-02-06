@@ -46,12 +46,11 @@ model Answer {
 }
 
 model ActionProof {
-  // Prevent replay / double-use:
-  // store nullifier_hash per action (and optionally per category/day)
-  id           String   @id @default(cuid())
-  action       String
-  nullifier    String
-  createdAt    DateTime @default(now())
+  id        String   @id @default(cuid())
+  action    String
+  signal    String
+  nullifier String
+  createdAt DateTime @default(now())
 
-  @@unique([action, nullifier])
+  @@unique([action, nullifier, signal])
 }

@@ -1,8 +1,8 @@
 'use client';
 
 import { Button, LiveFeedback } from '@worldcoin/mini-apps-ui-kit-react';
-import { useState } from 'react';
-import { verifyAndConsume } from '@/components/verify';
+import { useState, useRef } from 'react';
+import { getWorldIDProof } from '@/components/verify';
 
 interface ComposeQuestionProps {
   categoryId: string;
@@ -23,7 +23,16 @@ export const ComposeQuestion = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Single-flight lock: prevent multiple simultaneous submissions
+  const isSubmittingRef = useRef(false);
+
   const handleSubmit = async () => {
+    // Single-flight lock check
+    if (isSubmittingRef.current) {
+      console.warn('Submit already in progress, ignoring duplicate click');
+      return;
+    }
+
     if (!text.trim()) {
       setError('Please enter a question');
       return;
@@ -34,46 +43,84 @@ export const ComposeQuestion = ({
       return;
     }
 
+    // Set single-flight lock IMMEDIATELY
+    isSubmittingRef.current = true;
     setIsSubmitting(true);
     setError(null);
 
+    // Generate unique request ID for tracking
+    const requestId = `q-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    console.log(`[${requestId}] Starting question submission`);
+
     try {
-      // Step 1: Verify World ID
+      // Get World ID proof (client-side verification only)
       const action = process.env.NEXT_PUBLIC_ACTION_POST_QUESTION;
       if (!action) {
-        throw new Error('Action ID not configured');
+        throw new Error('Action ID not configured. Please set NEXT_PUBLIC_ACTION_POST_QUESTION in your environment variables.');
       }
 
-      const proof = await verifyAndConsume(action, categoryId);
+      // Signal strategy: categoryId + date (allows multiple questions per category per day)
+      const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+      const signal = `${categoryId}:${today}`;
 
-      // Step 2: Post question with proof
+      console.log(`[${requestId}] Getting World ID proof with action:`, action, 'signal:', signal);
+      
+      // Get FRESH proof from MiniKit (never reuse proofs)
+      const proof = await getWorldIDProof(action, signal);
+      
+      // Log proof details before sending
+      console.log(`[${requestId}] Got proof - nullifier:`, proof.nullifier_hash, 'signal:', signal);
+
+      // Post question with proof (server will verify + store nullifier atomically)
       const res = await fetch('/api/questions', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-rid': requestId, // Request ID for server-side tracking
+        },
         body: JSON.stringify({
           categoryId,
           text: text.trim(),
           proof,
+          signal, // Must match what was used during proof generation
         }),
       });
 
       const data = await res.json();
 
       if (!res.ok) {
+        console.error(`[${requestId}] Server error:`, data);
+        // Handle specific error codes
+        if (data.error === 'replay' || data.error === 'replay_or_already_used') {
+          throw new Error('Already used for this category today. Please try again tomorrow or choose a different category.');
+        }
+        if (data.error === 'missing_signal') {
+          throw new Error('Signal validation failed. Please try again.');
+        }
         throw new Error(data.message || data.error || 'Failed to post question');
       }
+
+      console.log(`[${requestId}] Question created successfully:`, data.id);
 
       // Success!
       setText('');
       onSuccess();
     } catch (err) {
-      console.error('Failed to post question:', err);
-      setError(
-        err instanceof Error
-          ? err.message
-          : 'Failed to post question. Please try again.',
-      );
+      console.error(`[${requestId}] Failed to post question:`, err);
+      
+      // Extract more detailed error information
+      let errorMessage = 'Failed to post question. Please try again.';
+      if (err instanceof Error) {
+        errorMessage = err.message;
+      } else if (typeof err === 'object' && err !== null) {
+        const errorObj = err as any;
+        errorMessage = errorObj.message || errorObj.error || errorMessage;
+      }
+      
+      setError(errorMessage);
     } finally {
+      // Release single-flight lock
+      isSubmittingRef.current = false;
       setIsSubmitting(false);
     }
   };

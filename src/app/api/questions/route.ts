@@ -28,106 +28,191 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  // Extract request ID for tracking
+  const requestId = req.headers.get('x-rid') || 'unknown';
+  
   const session = await auth();
-  if (!session?.user?.walletAddress) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const wallet = session?.user?.walletAddress;
+
+  console.log(`[${requestId}] CREATE_QUESTION request:`, {
+    hasSession: !!session,
+    wallet: wallet || '(missing)',
+  });
+
+  if (!wallet) {
+    return NextResponse.json({ 
+      error: "unauthorized",
+      message: "Authentication required. Please sign in with World App.",
+    }, { status: 401 });
   }
 
-  const { categoryId, text, proof } = await req.json();
+  const body = await req.json();
+  const { categoryId, text, proof, signal } = body;
 
-  if (!categoryId || !text) {
-    return NextResponse.json({ error: "bad_request" }, { status: 400 });
+  console.log(`[${requestId}] CREATE_QUESTION body:`, {
+    hasCategoryId: !!categoryId,
+    hasText: !!text,
+    textLength: text?.length || 0,
+    hasProof: !!proof,
+    hasSignal: !!signal,
+  });
+
+  // Validate required fields
+  const missing: Record<string, boolean> = {};
+  if (!categoryId) missing.categoryId = true;
+  if (!text) missing.text = true;
+  if (!proof) missing.proof = true;
+  if (!signal) missing.signal = true;
+
+  if (Object.keys(missing).length > 0) {
+    return NextResponse.json({ 
+      error: "bad_request",
+      message: "Missing required fields",
+      missing,
+    }, { status: 400 });
   }
+
+  // Validate signal is non-empty string
+  if (typeof signal !== 'string' || signal.trim().length === 0) {
+    return NextResponse.json({
+      error: "missing_signal",
+      message: "Signal must be a non-empty string",
+    }, { status: 400 });
+  }
+
   if (text.length > 300) {
-    return NextResponse.json({ error: "too_long" }, { status: 400 });
+    return NextResponse.json({ 
+      error: "too_long",
+      message: "Question must be 300 characters or less",
+      length: text.length,
+    }, { status: 400 });
   }
 
-  // Verify World ID proof (required for posting questions)
-  if (!proof) {
-    return NextResponse.json(
-      { error: "verification_required", message: "World ID verification required to post questions" },
-      { status: 403 }
-    );
-  }
-
+  // Get action ID
   const action = process.env.NEXT_PUBLIC_ACTION_POST_QUESTION;
   if (!action) {
-    return NextResponse.json({ error: "server_error", message: "Action ID not configured" }, { status: 500 });
+    console.error('ACTION_POST_QUESTION not configured');
+    return NextResponse.json({ 
+      error: "server_error",
+      message: "Action ID not configured"
+    }, { status: 500 });
   }
 
   const app_id = process.env.APP_ID as `app_${string}`;
   if (!app_id) {
-    return NextResponse.json({ error: "server_error", message: "APP_ID not configured" }, { status: 500 });
+    console.error('APP_ID not configured');
+    return NextResponse.json({ 
+      error: "server_error",
+      message: "APP_ID not configured"
+    }, { status: 500 });
   }
 
-  // Verify the proof server-side
-  const verifyRes = (await verifyCloudProof(
-    proof as ISuccessResult,
-    app_id,
+  // Verify the proof server-side (signal must match what was used during generation)
+  const signalParam = signal && signal.trim().length > 0 ? signal : undefined;
+  
+  console.log(`[${requestId}] Verifying proof for question:`, {
     action,
-    categoryId // Use categoryId as signal
-  )) as IVerifyResponse;
+    signal: signalParam || '(none)',
+    hasNullifier: !!(proof as ISuccessResult).nullifier_hash,
+    nullifier: (proof as ISuccessResult).nullifier_hash,
+  });
+
+  let verifyRes: IVerifyResponse;
+  try {
+    verifyRes = (await verifyCloudProof(
+      proof as ISuccessResult,
+      app_id,
+      action,
+      signalParam
+    )) as IVerifyResponse;
+  } catch (error: any) {
+    console.error('verifyCloudProof error:', error);
+    return NextResponse.json({
+      error: "verification_failed",
+      message: error?.message || "Proof verification failed",
+    }, { status: 400 });
+  }
 
   if (!verifyRes.success) {
-    const errorMessage = (verifyRes as any).error || "World ID verification failed. You may have reached your limit or the proof is invalid.";
-    return NextResponse.json(
-      {
-        error: "verification_failed",
-        message: errorMessage,
-      },
-      { status: 400 }
-    );
+    const errorCode = (verifyRes as any).code || (verifyRes as any).error_code;
+    console.error('Verification failed:', { errorCode, verifyRes });
+    return NextResponse.json({
+      error: "verification_failed",
+      code: errorCode,
+      message: (verifyRes as any).detail || "World ID verification failed",
+    }, { status: 400 });
   }
 
-  // Anti-replay: check if nullifier was already used
+  // Extract nullifier
   const nullifier = (verifyRes as any).nullifier_hash ?? (proof as ISuccessResult).nullifier_hash;
-  const existingProof = await db.actionProof.findFirst({
-    where: {
-      action,
-      nullifier,
-    },
-  });
-
-  if (existingProof) {
-    return NextResponse.json(
-      {
-        error: "already_used",
-        message: "This verification has already been used. Please verify again.",
-      },
-      { status: 400 }
-    );
+  if (!nullifier) {
+    console.error('Nullifier missing from verification response');
+    return NextResponse.json({
+      error: "invalid_proof",
+      message: "Proof missing nullifier hash",
+    }, { status: 400 });
   }
 
-  // Store the proof to prevent replay
+  console.log(`[${requestId}] Verification successful, nullifier:`, nullifier);
+
+  // Atomic transaction: store nullifier + create question
+  // If either fails, both fail (no wasted verification attempts)
   try {
-    await db.actionProof.create({ data: { action, nullifier } });
-  } catch (error) {
-    // Race condition: another request used this proof
-    return NextResponse.json(
-      {
-        error: "already_used",
-        message: "This verification has already been used.",
-      },
-      { status: 400 }
-    );
+    const username = session.user.username || null;
+
+    const result = await db.$transaction(async (tx) => {
+      // 1. Store nullifier (anti-replay protection)
+      // Schema: @@unique([action, nullifier, signal])
+      try {
+        await tx.actionProof.create({
+          data: { action, nullifier, signal },
+        });
+        console.log(`[${requestId}] ActionProof stored:`, { action, nullifier, signal });
+      } catch (error: any) {
+        if (error.code === 'P2002') {
+          // Unique constraint violation = replay for this specific (action, nullifier, signal)
+          throw new Error('REPLAY_DETECTED');
+        }
+        throw error;
+      }
+
+      // 2. Upsert user
+      const user = await tx.user.upsert({
+        where: { wallet },
+        update: { username },
+        create: { wallet, username },
+      });
+
+      // 3. Create question
+      const question = await tx.question.create({
+        data: { userId: user.id, categoryId, text },
+        include: {
+          user: { select: { username: true, wallet: true } },
+        },
+      });
+
+      return question;
+    });
+
+    console.log(`[${requestId}] Question created successfully:`, result.id);
+    return NextResponse.json(result);
+
+  } catch (error: any) {
+    if (error.message === 'REPLAY_DETECTED') {
+      console.warn(`[${requestId}] Replay attempt detected:`, { action, nullifier, signal });
+      return NextResponse.json({
+        error: "replay_or_already_used",
+        message: "Already used for this category today. Please try again tomorrow or use a different category.",
+        action,
+        signal,
+      }, { status: 409 });
+    }
+
+    console.error(`[${requestId}] Transaction failed:`, error);
+    return NextResponse.json({
+      error: "server_error",
+      message: "Failed to create question",
+      details: error.message,
+    }, { status: 500 });
   }
-
-  // Create the question
-  const wallet = session.user.walletAddress;
-  const username = session.user.username || null;
-
-  const user = await db.user.upsert({
-    where: { wallet },
-    update: { username },
-    create: { wallet, username },
-  });
-
-  const q = await db.question.create({
-    data: { userId: user.id, categoryId, text },
-    include: {
-      user: { select: { username: true, wallet: true } },
-    },
-  });
-
-  return NextResponse.json(q);
 }
