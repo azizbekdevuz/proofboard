@@ -1,34 +1,29 @@
-"use client";
+'use client';
 
-import { use } from "react";
-import { useState } from "react";
-import { verifyAndConsume } from "./actions";
+import { Page } from '@/components/PageLayout';
+import { TopBar } from '@worldcoin/mini-apps-ui-kit-react';
+import { use } from 'react';
+import { CategoryBoard } from '@/components/CategoryBoard';
 
-export default function CategoryPage({ params }: { params: Promise<{ id: string }> }) {
+/**
+ * Category board page - Shows questions as sticky notes
+ * Users can view questions, post new ones, and answer existing ones
+ */
+export default function CategoryPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
   const { id } = use(params);
-  const [text, setText] = useState("");
-
-  async function onPostQuestion() {
-    // 1) Verify first
-    await verifyAndConsume(process.env.NEXT_PUBLIC_ACTION_POST_QUESTION!, id);
-
-    // 2) Create question after verify succeeded
-    await fetch("/api/questions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        wallet: "0x...",       // from wallet auth session
-        username: "aziz",      // from wallet auth session
-        categoryId: id,
-        text,
-      }),
-    });
-  }
 
   return (
-    <div>
-      <textarea value={text} onChange={(e) => setText(e.target.value)} maxLength={300} />
-      <button onClick={onPostQuestion}>Post Question</button>
-    </div>
+    <>
+      <Page.Header className="p-0">
+        <TopBar title="Category Board" />
+      </Page.Header>
+      <Page.Main className="p-4">
+        <CategoryBoard categoryId={id} />
+      </Page.Main>
+    </>
   );
 }

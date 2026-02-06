@@ -1,6 +1,7 @@
 'use client';
 import { walletAuth } from '@/auth/wallet';
 import { Button, LiveFeedback } from '@worldcoin/mini-apps-ui-kit-react';
+import { MiniKit } from '@worldcoin/minikit-js';
 import { useMiniKit } from '@worldcoin/minikit-js/minikit-provider';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
@@ -14,10 +15,35 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 export const AuthButton = () => {
   const [isPending, setIsPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { isInstalled } = useMiniKit();
+  const [isChecking, setIsChecking] = useState(true);
+  const { isInstalled: isInstalledFromHook } = useMiniKit();
   const hasAttemptedAuth = useRef(false);
   const { data: session } = useSession();
   const router = useRouter();
+
+  // Check if MiniKit is installed using both hook and direct check
+  const isInstalled =
+    isInstalledFromHook === true || MiniKit.isInstalled() === true;
+
+  // Wait a bit for MiniKit to initialize, then check
+  useEffect(() => {
+    const checkMiniKit = () => {
+      const installed = MiniKit.isInstalled();
+      console.log('MiniKit check:', {
+        hook: isInstalledFromHook,
+        direct: installed,
+        final: isInstalled,
+      });
+      setIsChecking(false);
+    };
+
+    // Check immediately
+    checkMiniKit();
+
+    // Also check after a short delay in case MiniKit is still initializing
+    const timeout = setTimeout(checkMiniKit, 500);
+    return () => clearTimeout(timeout);
+  }, [isInstalledFromHook, isInstalled]);
 
   // Redirect if already authenticated
   useEffect(() => {
@@ -27,12 +53,13 @@ export const AuthButton = () => {
   }, [session, router]);
 
   const onClick = useCallback(async () => {
-    if (!isInstalled || isPending) {
+    // Double-check MiniKit is installed before proceeding
+    if (!MiniKit.isInstalled()) {
+      setError('Please open this app in World App');
       return;
     }
 
-    if (!isInstalled) {
-      setError('Please open this app in World App');
+    if (isPending) {
       return;
     }
 
@@ -51,11 +78,16 @@ export const AuthButton = () => {
     } finally {
       setIsPending(false);
     }
-  }, [isInstalled, isPending]);
+  }, [isPending]);
 
   // Auto-authenticate on load when MiniKit is ready (only once)
   useEffect(() => {
-    if (isInstalled === true && !hasAttemptedAuth.current && !session) {
+    if (
+      !isChecking &&
+      isInstalled &&
+      !hasAttemptedAuth.current &&
+      !session
+    ) {
       hasAttemptedAuth.current = true;
       setIsPending(true);
       walletAuth()
@@ -67,10 +99,21 @@ export const AuthButton = () => {
           setIsPending(false);
         });
     }
-  }, [isInstalled, session]);
+  }, [isChecking, isInstalled, session]);
 
   if (session) {
     return null; // Don't show button if already authenticated
+  }
+
+  // Show loading state while checking
+  if (isChecking) {
+    return (
+      <div className="flex flex-col items-center gap-4 w-full max-w-sm">
+        <Button disabled size="lg" variant="primary" className="w-full">
+          Checking...
+        </Button>
+      </div>
+    );
   }
 
   return (
@@ -93,7 +136,7 @@ export const AuthButton = () => {
           Continue with World
         </Button>
       </LiveFeedback>
-      {!isInstalled && (
+      {!isInstalled && !isChecking && (
         <p className="text-sm text-gray-500 text-center">
           Open this app in World App to continue
         </p>

@@ -2,8 +2,10 @@
 
 import { MiniKit, VerificationLevel, ISuccessResult } from "@worldcoin/minikit-js";
 
-export async function verifyAndConsume(action: string, signal?: string) {
-  if (!MiniKit.isInstalled()) throw new Error("Open inside World App");
+export async function verifyAndConsume(action: string, signal?: string): Promise<ISuccessResult> {
+  if (!MiniKit.isInstalled()) {
+    throw new Error("Please open this app in World App to verify");
+  }
 
   const { finalPayload } = await MiniKit.commandsAsync.verify({
     action,
@@ -11,7 +13,13 @@ export async function verifyAndConsume(action: string, signal?: string) {
     verification_level: VerificationLevel.Orb,
   });
 
-  if (finalPayload.status === "error") throw new Error("Verify rejected");
+  if (finalPayload.status === "error") {
+    const errorCode = (finalPayload as any).error_code;
+    if (errorCode === "limit_reached") {
+      throw new Error("You've reached your limit for this action. Please try again later.");
+    }
+    throw new Error("Verification was rejected. Please try again.");
+  }
 
   const r = await fetch("/api/verify", {
     method: "POST",
@@ -24,6 +32,10 @@ export async function verifyAndConsume(action: string, signal?: string) {
   });
 
   const j = await r.json();
-  if (j.status !== 200) throw new Error(j.verifyRes?.error ?? "Verify failed");
-  return j.verifyRes;
+  if (r.status !== 200) {
+    const errorMessage = j.verifyRes?.error || j.message || "Verification failed. Please try again.";
+    throw new Error(errorMessage);
+  }
+  
+  return finalPayload as ISuccessResult;
 }
