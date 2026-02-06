@@ -27,17 +27,14 @@ export const walletAuth = async () => {
   }
 
   if (result.finalPayload.status !== 'success') {
-    console.error(
-      'Wallet authentication failed',
-      result.finalPayload.error_code,
-    );
-    return;
-  } else {
-    console.log(result.finalPayload);
+    const errorMessage =
+      result.finalPayload.error_code || 'Wallet authentication failed';
+    console.error('Wallet authentication failed', result.finalPayload.error_code);
+    throw new Error(errorMessage);
   }
 
   await signIn('credentials', {
-    redirectTo: '/home',
+    redirectTo: '/home/thoughts',
     nonce,
     signedNonce,
     finalPayloadJson: JSON.stringify(result.finalPayload),

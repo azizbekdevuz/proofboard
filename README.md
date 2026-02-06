@@ -1,20 +1,143 @@
-## Create a Mini App
+# ProofBoard - World Mini App
 
-[Mini apps](https://docs.worldcoin.org/mini-apps) enable third-party developers to create native-like applications within World App.
+**ProofBoard** is a human-only sticky-note Q&A system built for World App. Users post questions as sticky notes on category boards, others attach answers, and the questioner accepts one answer. Every important action is gated by World ID Verify (Incognito Actions) to prevent bots, LLM spam, and multi-account brigading.
 
-This template is a way for you to quickly get started with authentication and examples of some of the trickier commands.
+## Features
+
+- 🔐 **Human-only gating**: All actions (post question, post answer, accept answer) require World ID verification
+- 🛡️ **Anti-abuse**: Replay protection via nullifier storage, rate limiting via World Dev Portal
+- 🔒 **Privacy-by-design**: Minimal data collection (wallet + optional username only)
+- 📱 **Mobile-first**: Built with World Mini App UI Kit for native-like experience
 
 ## Getting Started
 
-1. cp .env.example .env.local
-2. Follow the instructions in the .env.local file
-3. Run `npm run dev`
-4. Run `ngrok http 3000`
-5. Run `npx auth secret` to update the `AUTH_SECRET` in the .env.local file
-6. Add your domain to the `allowedDevOrigins` in the next.config.ts file.
-7. [For Testing] If you're using a proxy like ngrok, you need to update the `AUTH_URL` in the .env.local file to your ngrok url.
-8. Continue to developer.worldcoin.org and make sure your app is connected to the right ngrok url
-9. [Optional] For Verify and Send Transaction to work you need to do some more setup in the dev portal. The steps are outlined in the respective component files.
+### Prerequisites
+
+- Node.js 18+ and pnpm (or npm)
+- World App Developer account at [developer.worldcoin.org](https://developer.worldcoin.org)
+- PostgreSQL database (or SQLite for local dev)
+
+### Setup Steps
+
+1. **Clone and install dependencies:**
+   ```bash
+   pnpm install
+   ```
+
+2. **Set up environment variables:**
+   Create a `.env.local` file with the following variables:
+   ```env
+   # World Mini App Configuration
+   APP_ID=app_xxxxxxxxxxxxx                    # From Developer Portal
+   NEXT_PUBLIC_APP_ID=app_xxxxxxxxxxxxx        # Same as APP_ID
+   WORLD_API_KEY=your_world_api_key_here       # Optional
+   
+   # Incognito Action IDs (create in Developer Portal -> Incognito Actions)
+   NEXT_PUBLIC_ACTION_POST_QUESTION=proofboard_post_question
+   NEXT_PUBLIC_ACTION_POST_ANSWER=proofboard_post_answer
+   NEXT_PUBLIC_ACTION_ACCEPT_ANSWER=proofboard_accept_answer
+   
+   # Database
+   DATABASE_URL="file:./dev.db"                # SQLite for local dev
+   # DATABASE_URL=postgresql://...            # PostgreSQL for production
+   
+   # NextAuth
+   NEXTAUTH_SECRET=$(npx auth secret)         # Generate with: npx auth secret
+   NEXTAUTH_URL=http://localhost:3000
+   
+   # HMAC Secret (generate random string)
+   HMAC_SECRET_KEY=your_random_secret_here
+   ```
+
+3. **Create Incognito Actions in Developer Portal:**
+   - Go to [developer.worldcoin.org](https://developer.worldcoin.org)
+   - Navigate to your app → Incognito Actions
+   - Create three actions:
+     - `proofboard_post_question` (limit: 1 per user per category per day)
+     - `proofboard_post_answer` (limit: 5 per user per day)
+     - `proofboard_accept_answer` (limit: 1 per question)
+
+4. **Set up database:**
+   ```bash
+   npx prisma generate
+   npx prisma migrate dev
+   ```
+
+5. **Seed initial categories (optional):**
+   ```bash
+   # You can add categories via API or directly in database
+   ```
+
+6. **Run development server:**
+   ```bash
+   pnpm dev
+   ```
+
+7. **Test in World App:**
+   - Use ngrok or similar: `ngrok http 3000`
+   - Add your ngrok URL to Developer Portal → App Settings
+   - Open World App and scan QR code or use deep link
+
+## Environment Variables
+
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `APP_ID` | World App ID from Developer Portal | ✅ |
+| `NEXT_PUBLIC_APP_ID` | Same as APP_ID (exposed to client) | ✅ |
+| `NEXT_PUBLIC_ACTION_POST_QUESTION` | Incognito Action ID for posting questions | ✅ |
+| `NEXT_PUBLIC_ACTION_POST_ANSWER` | Incognito Action ID for posting answers | ✅ |
+| `NEXT_PUBLIC_ACTION_ACCEPT_ANSWER` | Incognito Action ID for accepting answers | ✅ |
+| `DATABASE_URL` | Database connection string | ✅ |
+| `NEXTAUTH_SECRET` | Secret for NextAuth sessions | ✅ |
+| `NEXTAUTH_URL` | Base URL of your app | ✅ |
+| `HMAC_SECRET_KEY` | Secret for nonce signing | ✅ |
+| `WORLD_API_KEY` | World API key (if needed) | ❌ |
+
+## API Routes
+
+- `GET /api/categories` - List all categories
+- `GET /api/questions?categoryId=xxx` - Get questions for a category
+- `POST /api/questions` - Create a question (requires verify)
+- `GET /api/answers?questionId=xxx` - Get answers for a question
+- `POST /api/answers` - Create an answer (requires verify)
+- `POST /api/accept` - Accept an answer (requires verify, owner only)
+- `POST /api/verify` - Verify World ID proof (server-side)
+- `GET /api/nonce` - Get nonce for wallet auth
+
+## Deployment
+
+### Vercel (Recommended)
+
+1. Push code to GitHub
+2. Import project in Vercel
+3. Add environment variables in Vercel dashboard
+4. Deploy
+
+### Database
+
+For production, use PostgreSQL:
+- Set `DATABASE_URL` to your PostgreSQL connection string
+- Run `npx prisma migrate deploy` after deployment
+
+## Architecture
+
+- **Authentication**: Wallet Auth via MiniKit (not Verify as login)
+- **Verification**: Verify command with Incognito Actions for gating
+- **Anti-replay**: Nullifier hash stored in `ActionProof` table
+- **Rate limiting**: Configured in World Dev Portal per action
+- **Database**: Prisma ORM with PostgreSQL/SQLite
+
+## Security
+
+- ✅ All proofs verified server-side using `verifyCloudProof`
+- ✅ Nullifier hashes stored to prevent replay attacks
+- ✅ Wallet extracted from session (not request body)
+- ✅ 300-character limit enforced server-side
+- ✅ Ownership checks for accept action
+
+## Contributing
+
+This project was built for World Build Korea 2026 hackathon.
 
 ## Authentication
 
