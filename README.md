@@ -73,10 +73,13 @@
    pnpm dev
    ```
 
+   **Optional — run without a database:** Set `USE_FAKE_DATA=true` in `.env.local`. The app will use built-in fake data and an in-memory store for new posts/comments (no DB or migrations needed). Good for quick UI testing. When you’re ready for the full backend, remove or set `USE_FAKE_DATA=false` and configure `DATABASE_URL` and migrations.
+
 7. **Test in World App:**
    - Use ngrok or similar: `ngrok http 3000`
    - Add your ngrok URL to Developer Portal → App Settings
    - Open World App and scan QR code or use deep link
+   - **Submission and QA must be done in World App on real devices** (see [testing](https://docs.world.org/mini-apps/quick-start/testing)); use your app id and the generated QR code to open the mini app inside World App.
 
 ## Environment Variables
 

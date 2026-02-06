@@ -1,8 +1,19 @@
-@import 'tailwindcss';
+@import "tailwindcss";
+@source "../lib";
+
+/* Mobile-first: built for small screens, touch, and in-app (World App) embedding. */
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #ddd6f5;
+  --foreground: #1d1d1f;
+  --page-padding: 24px;
+  --glass-bg: rgba(255, 255, 255, 0.72);
+  --glass-border: rgba(255, 255, 255, 0.6);
+  --glass-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+  --accent: 99 102 241;
+  --accent-soft: 238 242 255;
+  --accent-secondary: 99 102 241;
+  --touch-min: 44px; /* minimum touch target (e.g. Apple HIG) */
 }
 
 @theme inline {
@@ -10,17 +21,276 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --spacing-page: var(--page-padding);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #1e1b4b;
+    --foreground: #e8e0ff;
+    --glass-bg: rgba(20, 20, 28, 0.72);
+    --glass-border: rgba(255, 255, 255, 0.08);
+    --glass-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
   }
 }
 
+html,
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  height: 100dvh;
+  min-height: 100dvh;
+  margin: 0;
 }
+
+body {
+  background: var(--background) !important;
+  color: var(--foreground);
+  font-family: var(--font-sans), -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* App shell: ensures our tint is always visible (overrides any kit reset). */
+.app-shell {
+  min-height: 100dvh;
+  background: var(--background) !important;
+  color: var(--foreground);
+}
+
+/* Force main content area to use app background (not white). */
+.main-tint {
+  background-color: var(--background) !important;
+}
+
+/* Apple-style glass: frosted, soft edges */
+.glass {
+  background: var(--glass-bg);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Mobile: ensure tap targets are at least touch-min height for key actions */
+.touch-target {
+  min-height: var(--touch-min);
+  min-width: var(--touch-min);
+}
+
+/* Category grid loading skeleton (neutral tint) */
+.cat-grid-skeleton {
+  background: rgba(238, 242, 255, 0.5);
+  border: 1px solid rgba(199, 210, 254, 0.5);
+}
+
+/* Explore: "All" filter pill */
+.cat-pill-all {
+  background: #4f46e5;
+  color: white;
+}
+
+/* Explore feed loading skeleton */
+.cat-feed-skeleton {
+  background: rgba(224, 231, 255, 0.5);
+}
+
+/* ── Category colors (6 categories: 0=blue, 1=green, 2=yellow, 3=orange, 4=indigo, 5=lime) ── */
+:root {
+  /* Category 0 – blue */
+  --cat-0-tile-bg: #93c5fd;
+  --cat-0-tile-border: #60a5fa;
+  --cat-0-tile-text: #1e3a8a;
+  --cat-0-pill-bg: #dbeafe;
+  --cat-0-pill-border: #93c5fd;
+  --cat-0-pill-text: #1d4ed8;
+  --cat-0-meta: #1d4ed8;
+  --cat-0-link: #2563eb;
+  --cat-0-q-read-bg: rgba(191, 219, 254, 0.5);
+  --cat-0-q-read-border: rgba(96, 165, 250, 0.5);
+  --cat-0-q-unread-bg: rgba(239, 246, 255, 0.8);
+  --cat-0-q-unread-border: rgba(191, 219, 254, 0.7);
+  --cat-0-a-read-bg: rgba(219, 234, 254, 0.6);
+  --cat-0-a-read-border: rgba(191, 219, 254, 0.5);
+  --cat-0-a-unread-bg: rgba(239, 246, 255, 0.9);
+  --cat-0-a-unread-border: rgba(191, 219, 254, 0.8);
+  /* Category 1 – green */
+  --cat-1-tile-bg: #86efac;
+  --cat-1-tile-border: #4ade80;
+  --cat-1-tile-text: #14532d;
+  --cat-1-pill-bg: #dcfce7;
+  --cat-1-pill-border: #86efac;
+  --cat-1-pill-text: #15803d;
+  --cat-1-meta: #15803d;
+  --cat-1-link: #16a34a;
+  --cat-1-q-read-bg: rgba(187, 247, 208, 0.5);
+  --cat-1-q-read-border: rgba(74, 222, 128, 0.5);
+  --cat-1-q-unread-bg: rgba(240, 253, 244, 0.8);
+  --cat-1-q-unread-border: rgba(187, 247, 208, 0.7);
+  --cat-1-a-read-bg: rgba(220, 252, 231, 0.6);
+  --cat-1-a-read-border: rgba(187, 247, 208, 0.5);
+  --cat-1-a-unread-bg: rgba(240, 253, 244, 0.9);
+  --cat-1-a-unread-border: rgba(187, 247, 208, 0.8);
+  /* Category 2 – yellow */
+  --cat-2-tile-bg: #fde047;
+  --cat-2-tile-border: #facc15;
+  --cat-2-tile-text: #713f12;
+  --cat-2-pill-bg: #fef9c3;
+  --cat-2-pill-border: #fde047;
+  --cat-2-pill-text: #a16207;
+  --cat-2-meta: #a16207;
+  --cat-2-link: #ca8a04;
+  --cat-2-q-read-bg: rgba(254, 249, 195, 0.5);
+  --cat-2-q-read-border: rgba(250, 204, 21, 0.5);
+  --cat-2-q-unread-bg: rgba(254, 252, 232, 0.8);
+  --cat-2-q-unread-border: rgba(254, 249, 195, 0.7);
+  --cat-2-a-read-bg: rgba(254, 249, 195, 0.6);
+  --cat-2-a-read-border: rgba(254, 249, 195, 0.5);
+  --cat-2-a-unread-bg: rgba(254, 252, 232, 0.9);
+  --cat-2-a-unread-border: rgba(254, 249, 195, 0.8);
+  /* Category 3 – orange */
+  --cat-3-tile-bg: #fdba74;
+  --cat-3-tile-border: #fb923c;
+  --cat-3-tile-text: #7c2d12;
+  --cat-3-pill-bg: #ffedd5;
+  --cat-3-pill-border: #fdba74;
+  --cat-3-pill-text: #c2410c;
+  --cat-3-meta: #c2410c;
+  --cat-3-link: #ea580c;
+  --cat-3-q-read-bg: rgba(254, 215, 170, 0.5);
+  --cat-3-q-read-border: rgba(251, 146, 60, 0.5);
+  --cat-3-q-unread-bg: rgba(255, 247, 237, 0.8);
+  --cat-3-q-unread-border: rgba(254, 215, 170, 0.7);
+  --cat-3-a-read-bg: rgba(255, 237, 213, 0.6);
+  --cat-3-a-read-border: rgba(254, 215, 170, 0.5);
+  --cat-3-a-unread-bg: rgba(255, 247, 237, 0.9);
+  --cat-3-a-unread-border: rgba(254, 215, 170, 0.8);
+  /* Category 4 – indigo */
+  --cat-4-tile-bg: #a5b4fc;
+  --cat-4-tile-border: #818cf8;
+  --cat-4-tile-text: #312e81;
+  --cat-4-pill-bg: #e0e7ff;
+  --cat-4-pill-border: #a5b4fc;
+  --cat-4-pill-text: #4338ca;
+  --cat-4-meta: #4338ca;
+  --cat-4-link: #4f46e5;
+  --cat-4-q-read-bg: rgba(199, 210, 254, 0.5);
+  --cat-4-q-read-border: rgba(129, 140, 248, 0.5);
+  --cat-4-q-unread-bg: rgba(238, 242, 255, 0.8);
+  --cat-4-q-unread-border: rgba(199, 210, 254, 0.7);
+  --cat-4-a-read-bg: rgba(224, 231, 255, 0.6);
+  --cat-4-a-read-border: rgba(199, 210, 254, 0.5);
+  --cat-4-a-unread-bg: rgba(238, 242, 255, 0.9);
+  --cat-4-a-unread-border: rgba(199, 210, 254, 0.8);
+  /* Category 5 – lime */
+  --cat-5-tile-bg: #bef264;
+  --cat-5-tile-border: #a3e635;
+  --cat-5-tile-text: #365314;
+  --cat-5-pill-bg: #ecfccb;
+  --cat-5-pill-border: #bef264;
+  --cat-5-pill-text: #65a30d;
+  --cat-5-meta: #65a30d;
+  --cat-5-link: #84cc16;
+  --cat-5-q-read-bg: rgba(217, 249, 157, 0.5);
+  --cat-5-q-read-border: rgba(163, 230, 53, 0.5);
+  --cat-5-q-unread-bg: rgba(246, 253, 224, 0.8);
+  --cat-5-q-unread-border: rgba(217, 249, 157, 0.7);
+  --cat-5-a-read-bg: rgba(236, 252, 203, 0.6);
+  --cat-5-a-read-border: rgba(217, 249, 157, 0.5);
+  --cat-5-a-unread-bg: rgba(246, 253, 224, 0.9);
+  --cat-5-a-unread-border: rgba(217, 249, 157, 0.8);
+}
+
+/* Category tiles (grid on Categories page) */
+.cat-tile-0 { background: var(--cat-0-tile-bg); border: 2px solid var(--cat-0-tile-border); color: var(--cat-0-tile-text); }
+.cat-tile-0:hover { background: var(--cat-0-tile-border); }
+.cat-tile-1 { background: var(--cat-1-tile-bg); border: 2px solid var(--cat-1-tile-border); color: var(--cat-1-tile-text); }
+.cat-tile-1:hover { background: var(--cat-1-tile-border); }
+.cat-tile-2 { background: var(--cat-2-tile-bg); border: 2px solid var(--cat-2-tile-border); color: var(--cat-2-tile-text); }
+.cat-tile-2:hover { background: var(--cat-2-tile-border); }
+.cat-tile-3 { background: var(--cat-3-tile-bg); border: 2px solid var(--cat-3-tile-border); color: var(--cat-3-tile-text); }
+.cat-tile-3:hover { background: var(--cat-3-tile-border); }
+.cat-tile-4 { background: var(--cat-4-tile-bg); border: 2px solid var(--cat-4-tile-border); color: var(--cat-4-tile-text); }
+.cat-tile-4:hover { background: var(--cat-4-tile-border); }
+.cat-tile-5 { background: var(--cat-5-tile-bg); border: 2px solid var(--cat-5-tile-border); color: var(--cat-5-tile-text); }
+.cat-tile-5:hover { background: var(--cat-5-tile-border); }
+
+/* Category pills (horizontal filters) */
+.cat-pill-0 { background: var(--cat-0-pill-bg); color: var(--cat-0-pill-text); border: 1px solid var(--cat-0-pill-border); }
+.cat-pill-0:hover { background: var(--cat-0-pill-border); }
+.cat-pill-1 { background: var(--cat-1-pill-bg); color: var(--cat-1-pill-text); border: 1px solid var(--cat-1-pill-border); }
+.cat-pill-1:hover { background: var(--cat-1-pill-border); }
+.cat-pill-2 { background: var(--cat-2-pill-bg); color: var(--cat-2-pill-text); border: 1px solid var(--cat-2-pill-border); }
+.cat-pill-2:hover { background: var(--cat-2-pill-border); }
+.cat-pill-3 { background: var(--cat-3-pill-bg); color: var(--cat-3-pill-text); border: 1px solid var(--cat-3-pill-border); }
+.cat-pill-3:hover { background: var(--cat-3-pill-border); }
+.cat-pill-4 { background: var(--cat-4-pill-bg); color: var(--cat-4-pill-text); border: 1px solid var(--cat-4-pill-border); }
+.cat-pill-4:hover { background: var(--cat-4-pill-border); }
+.cat-pill-5 { background: var(--cat-5-pill-bg); color: var(--cat-5-pill-text); border: 1px solid var(--cat-5-pill-border); }
+.cat-pill-5:hover { background: var(--cat-5-pill-border); }
+
+/* Category card variants (question/answer, read/unread) – base + tint class */
+.cat-card { border-radius: 1rem; border: 1px solid transparent; backdrop-filter: blur(24px); box-shadow: 0 4px 24px rgba(0,0,0,0.06); }
+.cat-card-0-q-read { background: var(--cat-0-q-read-bg); border-color: var(--cat-0-q-read-border); }
+.cat-card-0-q-unread { background: var(--cat-0-q-unread-bg); border-color: var(--cat-0-q-unread-border); }
+.cat-card-0-a-read { background: var(--cat-0-a-read-bg); border-color: var(--cat-0-a-read-border); }
+.cat-card-0-a-unread { background: var(--cat-0-a-unread-bg); border-color: var(--cat-0-a-unread-border); }
+.cat-card-1-q-read { background: var(--cat-1-q-read-bg); border-color: var(--cat-1-q-read-border); }
+.cat-card-1-q-unread { background: var(--cat-1-q-unread-bg); border-color: var(--cat-1-q-unread-border); }
+.cat-card-1-a-read { background: var(--cat-1-a-read-bg); border-color: var(--cat-1-a-read-border); }
+.cat-card-1-a-unread { background: var(--cat-1-a-unread-bg); border-color: var(--cat-1-a-unread-border); }
+.cat-card-2-q-read { background: var(--cat-2-q-read-bg); border-color: var(--cat-2-q-read-border); }
+.cat-card-2-q-unread { background: var(--cat-2-q-unread-bg); border-color: var(--cat-2-q-unread-border); }
+.cat-card-2-a-read { background: var(--cat-2-a-read-bg); border-color: var(--cat-2-a-read-border); }
+.cat-card-2-a-unread { background: var(--cat-2-a-unread-bg); border-color: var(--cat-2-a-unread-border); }
+.cat-card-3-q-read { background: var(--cat-3-q-read-bg); border-color: var(--cat-3-q-read-border); }
+.cat-card-3-q-unread { background: var(--cat-3-q-unread-bg); border-color: var(--cat-3-q-unread-border); }
+.cat-card-3-a-read { background: var(--cat-3-a-read-bg); border-color: var(--cat-3-a-read-border); }
+.cat-card-3-a-unread { background: var(--cat-3-a-unread-bg); border-color: var(--cat-3-a-unread-border); }
+.cat-card-4-q-read { background: var(--cat-4-q-read-bg); border-color: var(--cat-4-q-read-border); }
+.cat-card-4-q-unread { background: var(--cat-4-q-unread-bg); border-color: var(--cat-4-q-unread-border); }
+.cat-card-4-a-read { background: var(--cat-4-a-read-bg); border-color: var(--cat-4-a-read-border); }
+.cat-card-4-a-unread { background: var(--cat-4-a-unread-bg); border-color: var(--cat-4-a-unread-border); }
+.cat-card-5-q-read { background: var(--cat-5-q-read-bg); border-color: var(--cat-5-q-read-border); }
+.cat-card-5-q-unread { background: var(--cat-5-q-unread-bg); border-color: var(--cat-5-q-unread-border); }
+.cat-card-5-a-read { background: var(--cat-5-a-read-bg); border-color: var(--cat-5-a-read-border); }
+.cat-card-5-a-unread { background: var(--cat-5-a-unread-bg); border-color: var(--cat-5-a-unread-border); }
+
+/* Category meta text (counts, category name on cards) */
+.cat-meta-0 { color: var(--cat-0-meta); }
+.cat-meta-1 { color: var(--cat-1-meta); }
+.cat-meta-2 { color: var(--cat-2-meta); }
+.cat-meta-3 { color: var(--cat-3-meta); }
+.cat-meta-4 { color: var(--cat-4-meta); }
+.cat-meta-5 { color: var(--cat-5-meta); }
+
+/* Category link (e.g. "In: CategoryName") */
+.cat-link-0 { color: var(--cat-0-link); }
+.cat-link-0:hover { text-decoration: underline; }
+.cat-link-1 { color: var(--cat-1-link); }
+.cat-link-1:hover { text-decoration: underline; }
+.cat-link-2 { color: var(--cat-2-link); }
+.cat-link-2:hover { text-decoration: underline; }
+.cat-link-3 { color: var(--cat-3-link); }
+.cat-link-3:hover { text-decoration: underline; }
+.cat-link-4 { color: var(--cat-4-link); }
+.cat-link-4:hover { text-decoration: underline; }
+.cat-link-5 { color: var(--cat-5-link); }
+.cat-link-5:hover { text-decoration: underline; }
+
+/* Category page gradient (question detail) – use with .cat-gradient-bg */
+.cat-gradient-bg { background: linear-gradient(to bottom, var(--cat-from), var(--cat-via), var(--cat-to)); }
+.cat-gradient-0 { --cat-from: rgba(239, 246, 255, 0.8); --cat-via: white; --cat-to: rgba(199, 210, 254, 0.4); }
+.cat-gradient-1 { --cat-from: rgba(240, 253, 244, 0.8); --cat-via: white; --cat-to: rgba(236, 253, 224, 0.4); }
+.cat-gradient-2 { --cat-from: rgba(254, 252, 232, 0.8); --cat-via: white; --cat-to: rgba(254, 215, 170, 0.4); }
+.cat-gradient-3 { --cat-from: rgba(255, 247, 237, 0.8); --cat-via: white; --cat-to: rgba(254, 252, 232, 0.4); }
+.cat-gradient-4 { --cat-from: rgba(238, 242, 255, 0.8); --cat-via: white; --cat-to: rgba(239, 246, 255, 0.4); }
+.cat-gradient-5 { --cat-from: rgba(246, 253, 224, 0.8); --cat-via: white; --cat-to: rgba(240, 253, 244, 0.4); }

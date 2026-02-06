@@ -1,15 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyCloudProof, IVerifyResponse, ISuccessResult } from "@worldcoin/minikit-js";
+import { verifyCloudProof, IVerifyResponse } from "@worldcoin/minikit-js";
 import { db } from "@/lib/db";
-
-type Req = {
-  payload: ISuccessResult;
-  action: string;
-  signal?: string;
-};
+import type { VerifyRequestPayload } from "@/libs/types";
 
 export async function POST(req: NextRequest) {
-  const { payload, action, signal } = (await req.json()) as Req;
+  const { payload, action, signal } = (await req.json()) as VerifyRequestPayload;
 
   const app_id = process.env.APP_ID as `app_${string}`;
   const verifyRes = (await verifyCloudProof(payload, app_id, action, signal)) as IVerifyResponse;

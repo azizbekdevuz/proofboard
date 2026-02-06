@@ -3,12 +3,10 @@
 import { Button, LiveFeedback } from '@worldcoin/mini-apps-ui-kit-react';
 import { useState } from 'react';
 import { verifyAndConsume } from '@/components/verify';
+import { fetchWithTimeout, FETCH_TIMEOUT_WRITE_MS } from '@/lib/network';
+import type { ComposeAnswerProps } from '@/libs/types';
 
-interface ComposeAnswerProps {
-  questionId: string;
-  onSuccess: () => void;
-  onCancel: () => void;
-}
+const MAX_ANSWER_CHARS = 500;
 
 /**
  * ComposeAnswer component - Form to post an answer to a question
@@ -29,8 +27,8 @@ export const ComposeAnswer = ({
       return;
     }
 
-    if (text.length > 300) {
-      setError('Answer must be 300 characters or less');
+    if (text.length > MAX_ANSWER_CHARS) {
+      setError(`Answer must be ${MAX_ANSWER_CHARS} characters or less`);
       return;
     }
 
@@ -38,7 +36,6 @@ export const ComposeAnswer = ({
     setError(null);
 
     try {
-      // Step 1: Verify World ID
       const action = process.env.NEXT_PUBLIC_ACTION_POST_ANSWER;
       if (!action) {
         throw new Error('Action ID not configured');
@@ -46,16 +43,19 @@ export const ComposeAnswer = ({
 
       const proof = await verifyAndConsume(action, questionId);
 
-      // Step 2: Post answer with proof
-      const res = await fetch('/api/answers', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          questionId,
-          text: text.trim(),
-          proof,
-        }),
-      });
+      const res = await fetchWithTimeout(
+        '/api/answers',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            questionId,
+            text: text.trim(),
+            proof,
+          }),
+        },
+        FETCH_TIMEOUT_WRITE_MS
+      );
 
       const data = await res.json();
 
@@ -63,7 +63,6 @@ export const ComposeAnswer = ({
         throw new Error(data.message || data.error || 'Failed to post answer');
       }
 
-      // Success!
       setText('');
       onSuccess();
     } catch (err) {
@@ -78,21 +77,21 @@ export const ComposeAnswer = ({
     }
   };
 
-  const remainingChars = 300 - text.length;
+  const remainingChars = MAX_ANSWER_CHARS - text.length;
 
   return (
-    <div className="flex flex-col gap-3 p-3 border-2 border-blue-200 rounded-lg bg-blue-50">
+    <div className="flex flex-col gap-3 p-3 glass rounded-2xl">
       <textarea
         value={text}
         onChange={(e) => setText(e.target.value)}
-        placeholder="Write your answer... (max 300 characters)"
-        maxLength={300}
+        placeholder={`Write your answer... (max ${MAX_ANSWER_CHARS} characters)`}
+        maxLength={MAX_ANSWER_CHARS}
         rows={3}
-        className="w-full p-2 border-2 border-blue-300 rounded-lg resize-none focus:outline-none focus:border-blue-500"
+        className="w-full p-3 rounded-xl border border-white/50 bg-white/40 backdrop-blur-sm resize-none focus:outline-none focus:ring-2 focus:ring-indigo-400/30 focus:border-indigo-400/50"
       />
 
       <div className="flex items-center justify-between text-xs">
-        <span className={remainingChars < 20 ? 'text-red-500' : 'text-gray-500'}>
+        <span className={remainingChars < 30 ? 'text-red-500' : 'text-gray-500'}>
           {remainingChars} remaining
         </span>
       </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { MiniKit, VerificationLevel, ISuccessResult } from "@worldcoin/minikit-js";
+import { fetchWithTimeout, FETCH_TIMEOUT_WRITE_MS } from "@/lib/network";
 
 export async function verifyAndConsume(action: string, signal?: string): Promise<ISuccessResult> {
   if (!MiniKit.isInstalled()) {
@@ -21,15 +22,19 @@ export async function verifyAndConsume(action: string, signal?: string): Promise
     throw new Error("Verification was rejected. Please try again.");
   }
 
-  const r = await fetch("/api/verify", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      payload: finalPayload as ISuccessResult,
-      action,
-      signal,
-    }),
-  });
+  const r = await fetchWithTimeout(
+    "/api/verify",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        payload: finalPayload as ISuccessResult,
+        action,
+        signal,
+      }),
+    },
+    FETCH_TIMEOUT_WRITE_MS
+  );
 
   const j = await r.json();
   if (r.status !== 200) {

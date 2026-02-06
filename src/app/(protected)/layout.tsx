@@ -1,6 +1,5 @@
 import { auth } from '@/auth';
-import { Navigation } from '@/components/Navigation';
-import { Page } from '@/components/PageLayout';
+import { SafeAreaLayout } from '@/components/SafeAreaLayout';
 import { redirect } from 'next/navigation';
 
 export default async function TabsLayout({
@@ -10,17 +9,9 @@ export default async function TabsLayout({
 }) {
   const session = await auth();
 
-  // If the user is not authenticated, redirect to the login page
   if (!session) {
     redirect('/');
   }
 
-  return (
-    <Page>
-      {children}
-      <Page.Footer className="px-0 fixed bottom-0 w-full bg-white">
-        <Navigation />
-      </Page.Footer>
-    </Page>
-  );
+  return <SafeAreaLayout>{children}</SafeAreaLayout>;
 }

@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import { TabItem, Tabs } from '@worldcoin/mini-apps-ui-kit-react';
-import { Home, User } from 'iconoir-react';
-import { usePathname, useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { TabItem, Tabs } from "@worldcoin/mini-apps-ui-kit-react";
+import { Home, User } from "iconoir-react";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
 /**
  * Navigation component for ProofBoard
@@ -13,30 +13,30 @@ import { useEffect, useState } from 'react';
 export const Navigation = () => {
   const pathname = usePathname();
   const router = useRouter();
-  const [value, setValue] = useState('thoughts');
+  const [value, setValue] = useState("thoughts");
 
   // Sync tab value with current pathname
   useEffect(() => {
-    if (pathname === '/home' || pathname.startsWith('/home/thoughts')) {
-      setValue('thoughts');
-    } else if (pathname.startsWith('/home/my')) {
-      setValue('my');
+    if (pathname.startsWith("/home/my")) {
+      setValue("my");
+    } else {
+      setValue("thoughts");
     }
   }, [pathname]);
 
   const handleValueChange = (newValue: string) => {
     setValue(newValue);
-    if (newValue === 'thoughts') {
-      router.push('/home/thoughts');
-    } else if (newValue === 'my') {
-      router.push('/home/my');
+    if (newValue === "thoughts") {
+      router.push("/home");
+    } else if (newValue === "my") {
+      router.push("/home/my");
     }
   };
 
   return (
     <Tabs value={value} onValueChange={handleValueChange}>
-      <TabItem value="thoughts" icon={<Home />} label="Thoughts" />
-      <TabItem value="my" icon={<User />} label="My" />
+      <TabItem value="thoughts" icon={<Home />} label="Explore" />
+      <TabItem value="my" icon={<User />} label="Profile" />
     </Tabs>
   );
 };

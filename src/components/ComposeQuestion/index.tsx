@@ -3,12 +3,8 @@
 import { Button, LiveFeedback } from '@worldcoin/mini-apps-ui-kit-react';
 import { useState } from 'react';
 import { verifyAndConsume } from '@/components/verify';
-
-interface ComposeQuestionProps {
-  categoryId: string;
-  onSuccess: () => void;
-  onCancel: () => void;
-}
+import { fetchWithTimeout, FETCH_TIMEOUT_WRITE_MS } from '@/lib/network';
+import type { ComposeQuestionProps } from '@/libs/types';
 
 /**
  * ComposeQuestion component - Form to post a new question
@@ -47,15 +43,19 @@ export const ComposeQuestion = ({
       const proof = await verifyAndConsume(action, categoryId);
 
       // Step 2: Post question with proof
-      const res = await fetch('/api/questions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          categoryId,
-          text: text.trim(),
-          proof,
-        }),
-      });
+      const res = await fetchWithTimeout(
+        '/api/questions',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            categoryId,
+            text: text.trim(),
+            proof,
+          }),
+        },
+        FETCH_TIMEOUT_WRITE_MS
+      );
 
       const data = await res.json();
 
