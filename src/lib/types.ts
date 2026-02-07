@@ -4,8 +4,17 @@
 
 import type { ReactNode } from "react";
 import type { ISuccessResult } from "@worldcoin/minikit-js";
+import type { IVerifyResponse } from "@worldcoin/minikit-js";
+
+/** Extended verify response with fields that may be returned by the API. */
+export type VerifyResponseWithDetails = IVerifyResponse & {
+  error?: string;
+  message?: string;
+  code?: string;
+  nullifier_hash?: string;
+};
 import type { Session } from "next-auth";
-import type { NoteType } from "@/libs/enums";
+import type { NoteType } from "@/lib/enums";
 
 // ── Category ─────────────────────────────────────────────────────────────
 
@@ -160,6 +169,8 @@ export interface ClientProvidersProps {
 
 export interface MiniKitErrorBoundaryProps {
   children: ReactNode;
+  session: Session | null;
+  fallbackContent: ReactNode;
 }
 
 export interface MiniKitErrorBoundaryState {

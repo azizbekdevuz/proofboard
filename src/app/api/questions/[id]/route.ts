@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
 import {
   getNoteById,
   getAnswersForQuestion,
   isFakeDataEnabled,
 } from "@/lib/fake-data";
+import {
+  getQuestionById,
+  getAnswersForQuestion as getAnswersForQuestionSql,
+  incrementView,
+  toNoteApiResponse,
+} from "@/lib/notes-sql";
 import { getCategoryName } from "@/lib/categories";
 
 export async function GET(
@@ -26,29 +31,18 @@ export async function GET(
     });
   }
 
-  const note = await db.note.findUnique({
-    where: { id },
-    include: {
-      user: { select: { username: true, wallet: true } },
-    },
-  });
-
-  if (!note || note.type !== "QUESTION") {
+  const note = await getQuestionById(id);
+  if (!note) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  // Fetch answer notes for this question
-  const answers = await db.note.findMany({
-    where: { type: "ANSWER", referenceId: id },
-    include: {
-      user: { select: { username: true, wallet: true } },
-    },
-    orderBy: { createdAt: "asc" },
-  });
+  await incrementView(id);
+
+  const answers = await getAnswersForQuestionSql(id);
 
   return NextResponse.json({
-    ...note,
+    ...toNoteApiResponse(note),
     categoryName: getCategoryName(note.category),
-    answers,
+    answers: answers.map(toNoteApiResponse),
   });
 }

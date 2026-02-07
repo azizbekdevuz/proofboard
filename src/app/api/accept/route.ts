@@ -1,16 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { auth } from "@/auth";
-import {
-  verifyCloudProof,
-  IVerifyResponse,
-  ISuccessResult,
-} from "@worldcoin/minikit-js";
+import { verifyCloudProof, ISuccessResult } from "@worldcoin/minikit-js";
+import type { VerifyResponseWithDetails } from "@/lib/types";
 import {
   getNoteById,
   acceptAnswerFake,
   isFakeDataEnabled,
 } from "@/lib/fake-data";
+import { getNoteByIdWithUser, acceptAnswer } from "@/lib/notes-sql";
 
 export async function POST(req: NextRequest) {
   const session = await auth();
@@ -85,11 +83,10 @@ export async function POST(req: NextRequest) {
     app_id,
     action,
     questionId
-  )) as IVerifyResponse;
+  )) as VerifyResponseWithDetails;
 
   if (!verifyRes.success) {
-    const errorMessage =
-      (verifyRes as any).error || "World ID verification failed.";
+    const errorMessage = verifyRes.error || "World ID verification failed.";
     return NextResponse.json(
       { error: "verification_failed", message: errorMessage },
       { status: 400 }
@@ -97,8 +94,7 @@ export async function POST(req: NextRequest) {
   }
 
   const nullifier =
-    (verifyRes as any).nullifier_hash ??
-    (proof as ISuccessResult).nullifier_hash;
+    verifyRes.nullifier_hash ?? (proof as ISuccessResult).nullifier_hash;
   const existingProof = await db.actionProof.findFirst({
     where: { action, nullifier },
   });
@@ -125,17 +121,13 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Check ownership and that no answer is already accepted
   const wallet = session.user.walletAddress;
 
-  const q = await db.note.findUnique({
-    where: { id: questionId },
-    include: { user: true },
-  });
+  const q = await getNoteByIdWithUser(questionId);
   if (!q || q.type !== "QUESTION") {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
-  if (q.user.wallet !== wallet) {
+  if (q.user_wallet !== wallet) {
     return NextResponse.json(
       {
         error: "forbidden",
@@ -154,8 +146,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Verify the answer exists and belongs to this question
-  const answer = await db.note.findUnique({ where: { id: answerId } });
+  const answer = await getNoteByIdWithUser(answerId);
   if (
     !answer ||
     answer.type !== "ANSWER" ||
@@ -164,11 +155,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
-  // Set the accepted answer
-  await db.note.update({
-    where: { id: questionId },
-    data: { acceptedAnswerId: answerId },
-  });
+  const updated = await acceptAnswer(questionId, answerId);
+  if (updated === 0) {
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
 
   return NextResponse.json({ accepted: true, acceptedAnswerId: answerId });
 }

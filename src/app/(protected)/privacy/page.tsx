@@ -1,5 +1,5 @@
 import { Page } from '@/components/PageLayout';
-import { TopBar } from '@worldcoin/mini-apps-ui-kit-react';
+import { AppHeader } from '@/components/AppHeader';
 import Link from 'next/link';
 
 /**
@@ -8,9 +8,7 @@ import Link from 'next/link';
 export default function PrivacyPage() {
   return (
     <>
-      <Page.Header className="p-0">
-        <TopBar title="Privacy" />
-      </Page.Header>
+      <AppHeader backHref="/home/my" title="Privacy" />
       <Page.Main className="max-w-lg">
         <div className="prose prose-sm text-gray-700 space-y-4">
           <p>

@@ -1,17 +1,14 @@
-import { Page } from '@/components/PageLayout';
-import { TopBar } from '@worldcoin/mini-apps-ui-kit-react';
-import { NewPostForm } from '@/components/NewPostForm';
-import { CreatePageBack } from './back';
+import { Page } from "@/components/PageLayout";
+import { AppHeader } from "@/components/AppHeader";
+import { NewPostForm } from "@/components/NewPostForm";
 
 /**
- * New Post screen - Text, category selection, Post (Figma Screen F/H/I)
+ * New Post screen – dark premium form.
  */
 export default function CreatePostPage() {
   return (
     <>
-      <Page.Header className="p-0">
-        <TopBar title="Ask a question" startAdornment={<CreatePageBack />} />
-      </Page.Header>
+      <AppHeader backHref="/home" title="Ask a question" />
       <Page.Main>
         <NewPostForm />
       </Page.Main>

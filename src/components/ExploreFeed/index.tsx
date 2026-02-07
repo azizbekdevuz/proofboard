@@ -3,14 +3,13 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useCallback } from "react";
 import { PostCard, type PostCardNote } from "@/components/PostCard";
-import { Button } from "@worldcoin/mini-apps-ui-kit-react";
 import { fetchWithTimeout, getResponseError } from "@/lib/network";
 import { getCategoryIndex, CATEGORY_PILL_CLASSES } from "@/lib/category-colors";
-import type { CategoryWithCount } from "@/libs/types";
+import type { CategoryWithCount } from "@/lib/types";
+import { RefreshDouble } from "iconoir-react";
 
 /**
- * Explore feed: horizontal category pills + grid of post previews (Figma Explore screen)
- * Uses timeouts and error+retry to avoid infinite loading (World App Technical Requirements).
+ * Explore feed – dark pills + glowing grid.
  */
 export const ExploreFeed = () => {
   const [categories, setCategories] = useState<CategoryWithCount[]>([]);
@@ -52,12 +51,10 @@ export const ExploreFeed = () => {
   useEffect(() => {
     fetchCategories();
   }, [fetchCategories]);
-
   useEffect(() => {
     fetchQuestions();
   }, [fetchQuestions]);
 
-  // Resolve category names for display
   const catMap = new Map(categories.map((c) => [c.id, c.name]));
   const enrichedQuestions = questions.map((q) => ({
     ...q,
@@ -65,10 +62,10 @@ export const ExploreFeed = () => {
   }));
 
   return (
-    <div className="flex flex-col gap-4">
-      {/* Horizontal category pills - All stays here, categories navigate to Category View */}
+    <div className="flex flex-col gap-5">
+      {/* Horizontal category pills */}
       <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 scrollbar-hide">
-        <span className="shrink-0 px-4 py-2 rounded-full text-sm font-medium cat-pill-all">
+        <span className="shrink-0 px-5 py-3 rounded-full text-sm font-semibold cat-pill-all">
           All
         </span>
         {categories.map((cat) => (
@@ -76,7 +73,7 @@ export const ExploreFeed = () => {
             key={cat.id}
             type="button"
             onClick={() => router.push(`/categories/${cat.id}`)}
-            className={`shrink-0 px-4 py-2 rounded-full text-sm font-medium transition ${
+            className={`shrink-0 px-5 py-3 rounded-full text-sm font-medium transition-[background,border-color,transform] duration-300 ${
               CATEGORY_PILL_CLASSES[getCategoryIndex(cat.id)]
             }`}
           >
@@ -85,36 +82,46 @@ export const ExploreFeed = () => {
         ))}
       </div>
 
-      {/* Grid of post previews */}
+      {/* Grid */}
       {loading ? (
         <div className="grid grid-cols-2 gap-3">
           {[1, 2, 3, 4, 5, 6].map((i) => (
             <div
               key={i}
-              className="aspect-square rounded-xl cat-feed-skeleton animate-pulse"
+              className="aspect-square rounded-[var(--card-radius)] skeleton"
             />
           ))}
         </div>
       ) : error ? (
-        <div className="flex flex-col items-center justify-center py-12 gap-3">
-          <p className="text-gray-600 text-center text-sm">{error}</p>
-          <Button variant="primary" size="lg" onClick={fetchQuestions}>
+        <div className="flex flex-col items-center justify-center py-16 gap-4">
+          <p className="text-[var(--text-secondary)] text-center text-sm">
+            {error}
+          </p>
+          <button
+            type="button"
+            onClick={fetchQuestions}
+            className="btn-accent px-6 py-4 flex items-center gap-2 text-sm"
+          >
+            <RefreshDouble className="w-4 h-4" />
             Retry
-          </Button>
+          </button>
         </div>
       ) : enrichedQuestions.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-12 gap-2">
-          <p className="text-gray-500 text-center">No posts yet</p>
+        <div className="flex flex-col items-center justify-center py-16 gap-3">
+          <div className="text-4xl mb-2">🤔</div>
+          <p className="text-[var(--text-tertiary)] text-center text-sm">
+            No posts yet
+          </p>
           <button
             type="button"
             onClick={() => router.push("/home/create")}
-            className="text-sm font-medium text-indigo-600 hover:text-indigo-800 hover:underline"
+            className="text-sm font-medium text-[var(--accent-violet)] hover:underline"
           >
             Create the first post
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-3 stagger-children">
           {enrichedQuestions.map((q) => (
             <PostCard key={q.id} question={q} />
           ))}

@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import { useNetworkStatus } from '@/hooks/useNetworkStatus';
+import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 
 /**
  * Shows a small banner when the device is offline so users know why actions may fail.
@@ -13,7 +13,7 @@ export function NetworkStatusBanner() {
 
   return (
     <div
-      className="bg-yellow-100 text-yellow-900 text-center py-2 px-4 text-sm"
+      className="bg-[var(--accent-amber)] bg-opacity-10 text-[var(--accent-amber)] text-center py-2 px-4 text-sm border-b border-[rgba(251,191,36,0.2)]"
       role="status"
       aria-live="polite"
     >

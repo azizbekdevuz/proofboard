@@ -1,6 +1,6 @@
 import { IVerifyResponse, verifyCloudProof } from '@worldcoin/minikit-js';
 import { NextRequest, NextResponse } from 'next/server';
-import type { VerifyRequestPayload } from '@/libs/types';
+import type { VerifyRequestPayload } from "@/lib/types";
 
 /**
  * This route is used to verify the proof of the user

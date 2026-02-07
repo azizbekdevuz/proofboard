@@ -10,9 +10,8 @@
  *   isArchived (boolean, for questions only).
  */
 
-import { CATEGORIES, type Category } from "@/lib/categories";
-import type { FakeNote, CategoryWithCount } from "@/libs/types";
-import { NoteType } from "@/libs/enums";
+import type { FakeNote } from "@/lib/types";
+import { NoteType } from "@/lib/enums";
 
 export { NoteType };
 export type { FakeNote };
@@ -190,23 +189,6 @@ function allNotes(): FakeNote[] {
 }
 
 // ── Public helpers ──────────────────────────────────────────────────────
-
-export function getCategories(): CategoryWithCount[] {
-  const notes = allNotes();
-  const countByCategory = new Map<string, number>();
-  for (const n of notes) {
-    if (n.type === "QUESTION") {
-      countByCategory.set(
-        n.category,
-        (countByCategory.get(n.category) ?? 0) + 1
-      );
-    }
-  }
-  return CATEGORIES.map((c) => ({
-    ...c,
-    _count: { questions: countByCategory.get(c.id) ?? 0 },
-  }));
-}
 
 /**
  * Get question notes for the board (excludes accepted questions).

@@ -1,32 +1,30 @@
-'use client';
+"use client";
 
-import { Button, LiveFeedback } from '@worldcoin/mini-apps-ui-kit-react';
-import { useState } from 'react';
-import { verifyAndConsume } from '@/components/verify';
-import { fetchWithTimeout, FETCH_TIMEOUT_WRITE_MS } from '@/lib/network';
-import type { ComposeAnswerProps } from '@/libs/types';
+import { LiveFeedback } from "@worldcoin/mini-apps-ui-kit-react";
+import { useState } from "react";
+import { verifyAndConsume } from "@/components/verify";
+import { fetchWithTimeout, FETCH_TIMEOUT_WRITE_MS } from "@/lib/network";
+import type { ComposeAnswerProps } from "@/lib/types";
 
 const MAX_ANSWER_CHARS = 500;
 
 /**
- * ComposeAnswer component - Form to post an answer to a question
- * Requires World ID verification before posting
+ * ComposeAnswer – compact dark glass form.
  */
 export const ComposeAnswer = ({
   questionId,
   onSuccess,
   onCancel,
 }: ComposeAnswerProps) => {
-  const [text, setText] = useState('');
+  const [text, setText] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async () => {
     if (!text.trim()) {
-      setError('Please enter an answer');
+      setError("Please enter an answer");
       return;
     }
-
     if (text.length > MAX_ANSWER_CHARS) {
       setError(`Answer must be ${MAX_ANSWER_CHARS} characters or less`);
       return;
@@ -37,40 +35,28 @@ export const ComposeAnswer = ({
 
     try {
       const action = process.env.NEXT_PUBLIC_ACTION_POST_ANSWER;
-      if (!action) {
-        throw new Error('Action ID not configured');
-      }
-
+      if (!action) throw new Error("Action ID not configured");
       const proof = await verifyAndConsume(action, questionId);
-
       const res = await fetchWithTimeout(
-        '/api/answers',
+        "/api/answers",
         {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            questionId,
-            text: text.trim(),
-            proof,
-          }),
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ questionId, text: text.trim(), proof }),
         },
         FETCH_TIMEOUT_WRITE_MS
       );
-
       const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.message || data.error || 'Failed to post answer');
-      }
-
-      setText('');
+      if (!res.ok)
+        throw new Error(data.message || data.error || "Failed to post answer");
+      setText("");
       onSuccess();
     } catch (err) {
-      console.error('Failed to post answer:', err);
+      console.error("Failed to post answer:", err);
       setError(
         err instanceof Error
           ? err.message
-          : 'Failed to post answer. Please try again.',
+          : "Failed to post answer. Please try again."
       );
     } finally {
       setIsSubmitting(false);
@@ -80,51 +66,55 @@ export const ComposeAnswer = ({
   const remainingChars = MAX_ANSWER_CHARS - text.length;
 
   return (
-    <div className="flex flex-col gap-3 p-3 glass rounded-2xl">
+    <div className="flex flex-col gap-3">
       <textarea
         value={text}
         onChange={(e) => setText(e.target.value)}
-        placeholder={`Write your answer... (max ${MAX_ANSWER_CHARS} characters)`}
+        placeholder="Write your answer..."
         maxLength={MAX_ANSWER_CHARS}
         rows={3}
-        className="w-full p-3 rounded-xl border border-white/50 bg-white/40 backdrop-blur-sm resize-none focus:outline-none focus:ring-2 focus:ring-indigo-400/30 focus:border-indigo-400/50"
+        className="input-dark w-full p-3 resize-none text-sm"
       />
 
       <div className="flex items-center justify-between text-xs">
-        <span className={remainingChars < 30 ? 'text-red-500' : 'text-gray-500'}>
+        <span
+          className={
+            remainingChars < 30
+              ? "text-[var(--accent-rose)]"
+              : "text-[var(--text-tertiary)]"
+          }
+        >
           {remainingChars} remaining
         </span>
       </div>
 
-      {error && <p className="text-xs text-red-500">{error}</p>}
+      {error && <p className="text-xs text-[var(--accent-rose)]">{error}</p>}
 
       <div className="flex gap-2">
-        <Button
-          variant="secondary"
-          size="sm"
+        <button
+          type="button"
           onClick={onCancel}
           disabled={isSubmitting}
-          className="flex-1"
+          className="btn-ghost flex-1 py-3.5 text-sm"
         >
           Cancel
-        </Button>
+        </button>
         <LiveFeedback
           label={{
-            pending: 'Verifying...',
-            failed: 'Failed',
-            success: 'Posted!',
+            pending: "Verifying...",
+            failed: "Failed",
+            success: "Posted!",
           }}
-          state={isSubmitting ? 'pending' : undefined}
+          state={isSubmitting ? "pending" : undefined}
         >
-          <Button
-            variant="primary"
-            size="sm"
+          <button
+            type="button"
             onClick={handleSubmit}
             disabled={isSubmitting || !text.trim()}
-            className="flex-1"
+            className="btn-accent flex-1 py-3.5 text-sm disabled:opacity-40"
           >
             Post Answer
-          </Button>
+          </button>
         </LiveFeedback>
       </div>
     </div>

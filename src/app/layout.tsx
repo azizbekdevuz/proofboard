@@ -27,10 +27,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#ddd6f5" },
-    { media: "(prefers-color-scheme: dark)", color: "#1e1b4b" },
-  ],
+  themeColor: "#f8f7fc",
 };
 
 export default async function RootLayout({
@@ -48,7 +45,7 @@ export default async function RootLayout({
           color: "var(--foreground)",
         }}
       >
-        <MiniKitErrorBoundary>
+        <MiniKitErrorBoundary session={session} fallbackContent={children}>
           <ClientProviders session={session}>{children}</ClientProviders>
         </MiniKitErrorBoundary>
       </body>

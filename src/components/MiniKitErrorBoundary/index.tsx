@@ -1,13 +1,22 @@
 "use client";
 
 import { Component } from "react";
-import type { MiniKitErrorBoundaryProps, MiniKitErrorBoundaryState } from "@/libs/types";
+import { SessionProvider } from "next-auth/react";
+import { FallbackMiniKitProvider } from "@/contexts/FallbackMiniKitContext";
+import type {
+  MiniKitErrorBoundaryProps,
+  MiniKitErrorBoundaryState,
+} from "@/lib/types";
 
 /**
  * Catches MiniKit "not installed" (and similar) errors when the app is opened
- * in a normal browser instead of inside World App, and shows a friendly message.
+ * in a normal browser instead of inside World App. Renders the app in fallback
+ * mode (zero safe area, no MiniKit) so the UI still works and shows "Open in World App".
  */
-export class MiniKitErrorBoundary extends Component<MiniKitErrorBoundaryProps, MiniKitErrorBoundaryState> {
+export class MiniKitErrorBoundary extends Component<
+  MiniKitErrorBoundaryProps,
+  MiniKitErrorBoundaryState
+> {
   constructor(props: MiniKitErrorBoundaryProps) {
     super(props);
     this.state = { error: null };
@@ -23,6 +32,8 @@ export class MiniKitErrorBoundary extends Component<MiniKitErrorBoundaryProps, M
       msg.includes("minikit") ||
       msg.includes("minkit") ||
       msg.includes("not installed") ||
+      msg.includes("intleld") ||
+      msg.includes("intled") ||
       msg.includes("world app")
     );
   }
@@ -30,20 +41,11 @@ export class MiniKitErrorBoundary extends Component<MiniKitErrorBoundaryProps, M
   render() {
     if (this.state.error && this.isMiniKitError(this.state.error)) {
       return (
-        <div className="min-h-dvh flex flex-col items-center justify-center p-6 bg-white text-center">
-          <div className="max-w-sm space-y-4">
-            <h1 className="text-lg font-semibold text-gray-900">
-              Open in World App
-            </h1>
-            <p className="text-sm text-gray-600">
-              This app runs inside World App. Open the link from World App, or
-              scan the QR code in the Mini App settings to continue.
-            </p>
-            <p className="text-xs text-gray-500">
-              MiniKit is not available in a regular browser.
-            </p>
-          </div>
-        </div>
+        <FallbackMiniKitProvider>
+          <SessionProvider session={this.props.session}>
+            {this.props.fallbackContent}
+          </SessionProvider>
+        </FallbackMiniKitProvider>
       );
     }
 

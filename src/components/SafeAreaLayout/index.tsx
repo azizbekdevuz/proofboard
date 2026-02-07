@@ -1,18 +1,14 @@
 "use client";
 
 import { useSafeAreaInsets } from "@worldcoin/mini-apps-ui-kit-react";
-import { Navigation } from "@/components/Navigation";
 import { NetworkStatusBanner } from "@/components/NetworkStatusBanner";
-import { Page } from "@/components/PageLayout";
+import { useFallbackMiniKit } from "@/contexts/FallbackMiniKitContext";
 
 /**
- * Wraps protected app content and applies MiniKit safe area insets
- * so content does not sit under notches or home indicators in World App.
- * See: https://docs.world.org/mini-apps/quick-start/init (deviceProperties.safeAreaInsets)
+ * Inner layout that uses MiniKit safe area insets (may throw when not in World App).
  */
-export function SafeAreaLayout({ children }: { children: React.ReactNode }) {
+function SafeAreaLayoutWithHook({ children }: { children: React.ReactNode }) {
   const insets = useSafeAreaInsets();
-
   return (
     <div
       className="flex h-dvh flex-col main-tint"
@@ -24,12 +20,31 @@ export function SafeAreaLayout({ children }: { children: React.ReactNode }) {
     >
       <NetworkStatusBanner />
       {children}
-      <Page.Footer
-        className="px-0 fixed bottom-0 w-full glass border-t border-white/20"
-        style={{ paddingBottom: `${35 + insets.bottom}px` }}
-      >
-        <Navigation />
-      </Page.Footer>
     </div>
   );
+}
+
+/**
+ * Safe area layout – uses MiniKit insets in World App, or zero insets in browser (fallback).
+ */
+export function SafeAreaLayout({ children }: { children: React.ReactNode }) {
+  const fallback = useFallbackMiniKit();
+
+  if (fallback) {
+    return (
+      <div
+        className="flex h-dvh flex-col main-tint"
+        style={{
+          paddingTop: fallback.top,
+          paddingLeft: fallback.left,
+          paddingRight: fallback.right,
+        }}
+      >
+        <NetworkStatusBanner />
+        {children}
+      </div>
+    );
+  }
+
+  return <SafeAreaLayoutWithHook>{children}</SafeAreaLayoutWithHook>;
 }

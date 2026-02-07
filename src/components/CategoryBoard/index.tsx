@@ -1,16 +1,15 @@
 "use client";
 
-import { Button, LiveFeedback } from "@worldcoin/mini-apps-ui-kit-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useCallback } from "react";
 import { ComposeQuestion } from "@/components/ComposeQuestion";
 import { QuestionCard } from "@/components/QuestionCard";
 import { fetchWithTimeout } from "@/lib/network";
-import type { Category, QuestionNote } from "@/libs/types";
+import type { Category, QuestionNote } from "@/lib/types";
+import { RefreshDouble, MessageText } from "iconoir-react";
 
 /**
- * CategoryBoard component - Displays questions as sticky notes
- * Shows compose question form and list of questions with answers
+ * CategoryBoard – dark glass board with question cards.
  */
 export const CategoryBoard = ({ categoryId }: { categoryId: string }) => {
   const [category, setCategory] = useState<Category | null>(null);
@@ -59,55 +58,67 @@ export const CategoryBoard = ({ categoryId }: { categoryId: string }) => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-8">
-        <p className="text-gray-500">Loading board...</p>
+      <div className="flex flex-col gap-4">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="skeleton h-40 rounded-[var(--card-radius)]" />
+        ))}
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center py-8 gap-3">
-        <p className="text-gray-600 text-center text-sm">{error}</p>
-        <Button variant="primary" onClick={fetchCategoryAndQuestions}>
+      <div className="flex flex-col items-center justify-center py-16 gap-4">
+        <p className="text-[var(--text-secondary)] text-center text-sm">
+          {error}
+        </p>
+        <button
+          type="button"
+          onClick={fetchCategoryAndQuestions}
+          className="btn-accent px-6 py-4 flex items-center gap-2 text-sm"
+        >
+          <RefreshDouble className="w-4 h-4" />
           Retry
-        </Button>
+        </button>
       </div>
     );
   }
 
   if (!category) {
     return (
-      <div className="flex flex-col items-center justify-center py-12 gap-4">
-        <p className="text-gray-500 text-center">Category not found</p>
-        <Button
-          variant="secondary"
+      <div className="flex flex-col items-center justify-center py-16 gap-3">
+        <p className="text-[var(--text-tertiary)]">Category not found</p>
+        <button
+          type="button"
           onClick={() => router.push("/categories")}
+          className="text-sm font-medium text-[var(--accent-violet)] hover:underline"
         >
           Back to categories
-        </Button>
+        </button>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="mb-2">
-        <h2 className="text-xl font-bold mb-1">{category.name}</h2>
-        <p className="text-sm text-gray-600">
+    <div className="flex flex-col gap-5 animate-fade-in-up">
+      <div className="mb-1">
+        <h2 className="text-xl font-bold text-[var(--text-primary)] mb-0.5">
+          {category.name}
+        </h2>
+        <p className="text-sm text-[var(--text-tertiary)]">
           {questions.length} question{questions.length !== 1 ? "s" : ""}
         </p>
       </div>
 
       {!showCompose && (
-        <Button
-          variant="primary"
-          size="lg"
-          className="w-full"
+        <button
+          type="button"
           onClick={() => setShowCompose(true)}
+          className="btn-accent w-full py-4 flex items-center justify-center gap-2 text-sm"
         >
+          <MessageText className="w-4 h-4" />
           Post a Question
-        </Button>
+        </button>
       )}
 
       {showCompose && (
@@ -119,13 +130,14 @@ export const CategoryBoard = ({ categoryId }: { categoryId: string }) => {
       )}
 
       {questions.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-12 gap-4">
-          <p className="text-gray-500 text-center">
+        <div className="flex flex-col items-center justify-center py-16 gap-3">
+          <div className="text-4xl">💭</div>
+          <p className="text-[var(--text-tertiary)] text-center text-sm">
             No questions yet. Be the first to post!
           </p>
         </div>
       ) : (
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-4 stagger-children">
           {questions.map((question) => (
             <QuestionCard
               key={question.id}

@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
 import { auth } from "@/auth";
 import { archiveQuestionFake, getNoteById, isFakeDataEnabled } from "@/lib/fake-data";
+import { getNoteByIdWithUser, archiveQuestion } from "@/lib/notes-sql";
 
 /**
  * POST /api/archive
- * Archive a question. Only the owner can archive their own questions.
+ * Archive a question (real SQL). Only the owner can archive their own questions.
  */
 export async function POST(req: NextRequest) {
   const session = await auth();
@@ -35,24 +35,17 @@ export async function POST(req: NextRequest) {
 
   const wallet = session.user.walletAddress;
 
-  const q = await db.note.findUnique({
-    where: { id: questionId },
-    include: { user: true },
-  });
+  const q = await getNoteByIdWithUser(questionId);
   if (!q || q.type !== "QUESTION") {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
-  if (q.user.wallet !== wallet) {
+  if (q.user_wallet !== wallet) {
     return NextResponse.json(
       { error: "forbidden", message: "Only the question owner can archive" },
       { status: 403 }
     );
   }
 
-  await db.note.update({
-    where: { id: questionId },
-    data: { isArchived: true },
-  });
-
+  await archiveQuestion(questionId);
   return NextResponse.json({ archived: true });
 }

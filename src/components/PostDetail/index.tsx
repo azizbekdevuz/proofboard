@@ -1,15 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { Eye, Heart } from "iconoir-react";
+import { Eye, Heart, ChatBubble } from "iconoir-react";
 import { ComposeAnswer } from "@/components/ComposeAnswer";
 import { fetchWithTimeout } from "@/lib/network";
-import type { PostDetailNote } from "@/libs/types";
+import type { PostDetailNote } from "@/lib/types";
 
 export type { PostDetailNote };
 
 /**
- * Post detail view - Media placeholder, content, comments, Add comment, like
+ * Post detail view – immersive dark design with depth.
  */
 export function PostDetail({ question }: { question: PostDetailNote }) {
   const [showCompose, setShowCompose] = useState(false);
@@ -61,25 +61,27 @@ export function PostDetail({ question }: { question: PostDetailNote }) {
   };
 
   return (
-    <div className="flex flex-col flex-1 min-h-0">
-      {/* Content - no media */}
-      <div className="p-6 border-b border-gray-200 text-center">
-        <p className="text-base text-gray-900 whitespace-pre-wrap">
+    <div className="flex flex-col flex-1 min-h-0 animate-fade-in-up">
+      {/* Content */}
+      <div className="p-6 border-b border-[var(--border-subtle)] text-center">
+        <p className="text-base text-[var(--text-primary)] whitespace-pre-wrap leading-relaxed">
           {question.text}
         </p>
-        <div className="flex items-center justify-center gap-2 mt-2 text-xs text-gray-500 flex-wrap">
+        <div className="flex items-center justify-center gap-2 mt-3 text-xs text-[var(--text-tertiary)] flex-wrap">
           <span>{question.user.username || "Anonymous"}</span>
-          <span>·</span>
+          <span className="opacity-40">·</span>
           <span>{formatDate(question.createdAt)}</span>
           {question.categoryName && (
             <>
-              <span>·</span>
-              <span>{question.categoryName}</span>
+              <span className="opacity-40">·</span>
+              <span className="text-[var(--accent-violet)]">
+                {question.categoryName}
+              </span>
             </>
           )}
         </div>
-        <div className="flex items-center justify-center gap-4 mt-2 text-xs text-gray-500">
-          <span className="flex items-center gap-1" title="Views">
+        <div className="flex items-center justify-center gap-5 mt-3 text-xs text-[var(--text-tertiary)]">
+          <span className="flex items-center gap-1.5" title="Views">
             <Eye className="w-4 h-4" />
             {question.viewsCount ?? 0}
           </span>
@@ -87,7 +89,7 @@ export function PostDetail({ question }: { question: PostDetailNote }) {
             type="button"
             onClick={handleLike}
             disabled={isLiking}
-            className="flex items-center gap-1 hover:text-red-500 transition-colors"
+            className="flex items-center gap-1.5 hover:text-[var(--accent-rose)] transition-colors"
             title="Like"
           >
             <Heart className="w-4 h-4" />
@@ -95,40 +97,46 @@ export function PostDetail({ question }: { question: PostDetailNote }) {
           </button>
         </div>
         {hasAccepted && (
-          <p className="mt-2 text-xs font-semibold text-green-600">
-            This question has an accepted answer
-          </p>
+          <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[rgba(52,211,153,0.12)] border border-[rgba(52,211,153,0.2)]">
+            <span className="text-xs font-semibold text-[var(--accent-emerald)]">
+              Accepted answer
+            </span>
+          </div>
         )}
       </div>
 
       {/* Comments */}
       <div className="flex-1 overflow-y-auto p-6 space-y-3">
-        <p className="text-sm font-semibold text-gray-700">
-          {localAnswers.length} comment{localAnswers.length !== 1 ? "s" : ""}
-        </p>
+        <div className="flex items-center gap-2 mb-1">
+          <ChatBubble className="w-4 h-4 text-[var(--text-tertiary)]" />
+          <p className="text-sm font-semibold text-[var(--text-secondary)]">
+            {localAnswers.length} comment{localAnswers.length !== 1 ? "s" : ""}
+          </p>
+        </div>
+
         {localAnswers.map((answer) => (
-          <div key={answer.id} className="flex gap-3">
-            <div className="flex-1 min-w-0">
-              <p className="text-xs text-gray-500 mb-0.5">
-                {answer.user.username || "Anonymous"} ·{" "}
-                {formatDate(answer.createdAt)}
-                {question.acceptedAnswerId === answer.id && (
-                  <span className="ml-2 text-green-600 font-semibold">
-                    Accepted
-                  </span>
-                )}
-              </p>
-              <p className="text-sm text-gray-900">{answer.text}</p>
-            </div>
+          <div key={answer.id} className="glass-card p-6">
+            <p className="text-xs text-[var(--text-tertiary)] mb-1.5">
+              {answer.user.username || "Anonymous"}{" "}
+              <span className="opacity-40">·</span>{" "}
+              {formatDate(answer.createdAt)}
+              {question.acceptedAnswerId === answer.id && (
+                <span className="ml-2 text-[var(--accent-emerald)] font-semibold">
+                  Accepted
+                </span>
+              )}
+            </p>
+            <p className="text-sm text-[var(--text-primary)] leading-relaxed">
+              {answer.text}
+            </p>
           </div>
         ))}
 
-        {/* Add comment - only if no accepted answer yet */}
         {!hasAccepted && !showCompose && (
           <button
             type="button"
             onClick={() => setShowCompose(true)}
-            className="w-full mt-2 py-3 px-6 rounded-xl border-2 border-gray-200 text-left text-gray-500 hover:border-gray-300 hover:bg-gray-50 transition"
+            className="btn-ghost w-full py-4 text-[var(--text-secondary)] text-sm"
           >
             Add comment
           </button>

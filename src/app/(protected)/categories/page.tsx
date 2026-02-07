@@ -1,74 +1,67 @@
 "use client";
 
 import { Page } from "@/components/PageLayout";
-import { TopBar, Button } from "@worldcoin/mini-apps-ui-kit-react";
+import { AppHeader } from "@/components/AppHeader";
 import { useRouter } from "next/navigation";
 import { CATEGORIES } from "@/lib/categories";
 import { CATEGORY_TILE_CLASSES, getCategoryIndex } from "@/lib/category-colors";
-import { NavArrowLeft } from "iconoir-react";
+import { MessageText, ChatBubble } from "iconoir-react";
+
+const CATEGORY_EMOJIS = ["💕", "👨‍👩‍👧‍👦", "🧘", "₿", "💼", "✨"];
 
 /**
- * Categories – first page after login.
- * Level 1: Back button + "Categories" title
- * Level 2: 3 rows × 2 columns = 6 categories in full view
- * Level 3: Left "Question", Right "Answer" buttons
+ * Categories – immersive dark grid with glowing tiles.
  */
 export default function CategoriesPage() {
   const router = useRouter();
 
   return (
     <>
-      <Page.Header className="p-0">
-        <TopBar
-          title="Categories"
-          startAdornment={
-            <button
-              type="button"
-              onClick={() => router.push("/home")}
-              className="touch-target flex items-center justify-center p-2 -ml-1 rounded-full hover:bg-gray-100 active:bg-gray-200"
-              aria-label="Back"
-            >
-              <NavArrowLeft className="w-6 h-6 text-gray-700" />
-            </button>
-          }
-        />
-      </Page.Header>
-      <Page.Main className="flex flex-col">
-        {/* Level 2: 3 rows × 2 columns = 6 categories */}
-        <div className="grid grid-cols-2 gap-3 flex-1 content-start">
-          {CATEGORIES.map((cat) => (
+      <AppHeader backHref="/home" title="Categories" />
+
+      <Page.Main className="flex flex-col gap-5">
+        {/* Category grid */}
+        <div className="grid grid-cols-2 gap-3 stagger-children">
+          {CATEGORIES.map((cat, i) => (
             <button
               key={cat.id}
               type="button"
               onClick={() => router.push(`/categories/${cat.id}`)}
-              className={`aspect-square rounded-2xl border ${
+              className={`relative aspect-square rounded-[var(--card-radius)] ${
                 CATEGORY_TILE_CLASSES[getCategoryIndex(cat.id)]
-              } backdrop-blur-xl shadow-[0_4px_20px_rgba(0,0,0,0.06)] active:scale-[0.98] transition flex items-center justify-center p-4 text-center`}
+              } backdrop-blur-xl active:scale-[0.97] transition-[transform,background,border-color] duration-300 flex flex-col items-center justify-center p-6 text-center gap-2 overflow-hidden`}
             >
-              <span className="font-semibold text-sm sm:text-base">
+              <span
+                className="text-3xl animate-float"
+                style={{ animationDelay: `${i * 200}ms` }}
+              >
+                {CATEGORY_EMOJIS[i]}
+              </span>
+              <span className="font-semibold text-sm tracking-tight">
                 {cat.name}
               </span>
             </button>
           ))}
         </div>
-        {/* Level 3: Question (left) | Answer (right) */}
-        <div className="grid grid-cols-2 gap-3 pt-4 pb-2">
-          <Button
-            variant="primary"
-            size="lg"
-            className="w-full"
+
+        {/* Action row */}
+        <div className="grid grid-cols-2 gap-3 pt-2">
+          <button
+            type="button"
             onClick={() => router.push("/home/create")}
+            className="btn-accent flex items-center justify-center gap-2 py-4 text-sm"
           >
+            <MessageText className="w-4 h-4" />
             Question
-          </Button>
-          <Button
-            variant="secondary"
-            size="lg"
-            className="w-full"
+          </button>
+          <button
+            type="button"
             onClick={() => router.push("/home/answer")}
+            className="btn-ghost flex items-center justify-center gap-2 py-4 text-sm"
           >
+            <ChatBubble className="w-4 h-4 text-[var(--accent-emerald)]" />
             Answer
-          </Button>
+          </button>
         </div>
       </Page.Main>
     </>

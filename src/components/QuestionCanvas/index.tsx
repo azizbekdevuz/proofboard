@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Eye, Heart } from "iconoir-react";
+import { Eye, Heart, ChatBubble } from "iconoir-react";
 import { ComposeAnswer } from "@/components/ComposeAnswer";
 import { fetchWithTimeout } from "@/lib/network";
 import {
@@ -12,10 +12,10 @@ import {
   isQuestionUnread,
   isAnswerUnread,
 } from "@/lib/category-colors";
-import type { PostDetailNote } from "@/libs/types";
+import type { PostDetailNote } from "@/lib/types";
 
 /**
- * Canvas-style question + answers: question card, answer cards, category link, Answer another
+ * Canvas-style question detail – immersive dark view with glowing cards.
  */
 export function QuestionCanvas({ question }: { question: PostDetailNote }) {
   const router = useRouter();
@@ -69,36 +69,36 @@ export function QuestionCanvas({ question }: { question: PostDetailNote }) {
   };
 
   return (
-    <div className="flex flex-col flex-1 min-h-0 gap-4 pb-6">
-      {/* Question card – bg by category; centered text; eye + views, heart + count only */}
+    <div className="flex flex-col flex-1 min-h-0 gap-5 pb-6 animate-fade-in-up">
+      {/* Question card */}
       <div
-        className={`p-4 text-center ${getCategoryCardClasses(
+        className={`p-6 text-center ${getCategoryCardClasses(
           categoryId,
           isQuestionUnread(question.viewsCount ?? 0),
           "question"
         )}`}
       >
-        <p className="text-base text-gray-900 whitespace-pre-wrap">
+        <p className="text-base text-[var(--text-primary)] whitespace-pre-wrap leading-relaxed">
           {question.text}
         </p>
-        <div className="flex items-center justify-center gap-2 mt-2 text-xs text-gray-500 flex-wrap">
+        <div className="flex items-center justify-center gap-2 mt-3 text-xs text-[var(--text-tertiary)] flex-wrap">
           <span>{question.user.username || "Anonymous"}</span>
-          <span>·</span>
+          <span className="opacity-40">·</span>
           <span>{formatDate(question.createdAt)}</span>
           {question.categoryName && categoryId && (
             <>
-              <span>·</span>
+              <span className="opacity-40">·</span>
               <Link
                 href={`/categories/${categoryId}`}
                 className={getCategoryLinkClasses(categoryId)}
               >
-                In: {question.categoryName}
+                {question.categoryName}
               </Link>
             </>
           )}
         </div>
-        <div className="flex items-center justify-center gap-4 mt-2 text-xs text-gray-500">
-          <span className="flex items-center gap-1" title="Views">
+        <div className="flex items-center justify-center gap-5 mt-3 text-xs text-[var(--text-tertiary)]">
+          <span className="flex items-center gap-1.5" title="Views">
             <Eye className="w-4 h-4" />
             {question.viewsCount ?? 0}
           </span>
@@ -106,7 +106,7 @@ export function QuestionCanvas({ question }: { question: PostDetailNote }) {
             type="button"
             onClick={handleLike}
             disabled={isLiking}
-            className="flex items-center gap-1 hover:text-red-500 transition-colors"
+            className="flex items-center gap-1.5 hover:text-[var(--accent-rose)] transition-colors duration-300"
             title="Like"
           >
             <Heart className="w-4 h-4" />
@@ -114,51 +114,68 @@ export function QuestionCanvas({ question }: { question: PostDetailNote }) {
           </button>
         </div>
         {hasAccepted && (
-          <p className="mt-2 text-xs font-semibold text-green-600">
-            This question has an accepted answer
-          </p>
+          <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[rgba(5,150,105,0.12)] border border-[rgba(5,150,105,0.25)]">
+            <span className="text-xs font-semibold text-[var(--accent-emerald)]">
+              Accepted answer
+            </span>
+          </div>
         )}
       </div>
 
-      {/* Answer cards */}
+      {/* Answers */}
       <div className="space-y-3">
-        <p className="text-sm font-semibold text-gray-700">
-          {localAnswers.length} answer{localAnswers.length !== 1 ? "s" : ""}
-        </p>
-        {localAnswers.map((answer) => {
-          const isAccepted = question.acceptedAnswerId === answer.id;
-          const answerUnread = isAnswerUnread(answer.createdAt);
-          const answerCardClasses = isAccepted
-            ? "rounded-2xl border border-green-200/60 bg-green-50/80 backdrop-blur-xl p-4 shadow-[0_4px_20px_rgba(0,0,0,0.06)]"
-            : `p-4 ${getCategoryCardClasses(
-                categoryId,
-                answerUnread,
-                "answer"
-              )}`;
-          return (
-            <div key={answer.id} className={`${answerCardClasses} text-center`}>
-              <p className="text-xs text-gray-500 mb-1">
-                {answer.user.username || "Anonymous"} · {formatDate(answer.createdAt)}
-                {isAccepted && (
-                  <span className="ml-2 text-green-600 font-semibold">Accepted</span>
-                )}
-              </p>
-              <p className="text-sm text-gray-900">{answer.text}</p>
-            </div>
-          );
-        })}
+        <div className="flex items-center gap-2">
+          <ChatBubble className="w-4 h-4 text-[var(--text-tertiary)]" />
+          <p className="text-sm font-semibold text-[var(--text-secondary)]">
+            {localAnswers.length} answer{localAnswers.length !== 1 ? "s" : ""}
+          </p>
+        </div>
+
+        <div className="space-y-2 stagger-children">
+          {localAnswers.map((answer) => {
+            const isAccepted = question.acceptedAnswerId === answer.id;
+            const answerUnread = isAnswerUnread(answer.createdAt);
+            const answerCardClasses = isAccepted
+              ? "rounded-[var(--card-radius)] border border-[rgba(5,150,105,0.3)] bg-[rgba(5,150,105,0.08)] backdrop-blur-xl p-6 shadow-[0_4px_20px_rgba(0,0,0,0.08)]"
+              : `p-6 ${getCategoryCardClasses(
+                  categoryId,
+                  answerUnread,
+                  "answer"
+                )}`;
+            return (
+              <div
+                key={answer.id}
+                className={`${answerCardClasses} text-center`}
+              >
+                <p className="text-xs text-[var(--text-tertiary)] mb-2">
+                  {answer.user.username || "Anonymous"}{" "}
+                  <span className="opacity-40">·</span>{" "}
+                  {formatDate(answer.createdAt)}
+                  {isAccepted && (
+                    <span className="ml-2 text-[var(--accent-emerald)] font-semibold">
+                      Accepted
+                    </span>
+                  )}
+                </p>
+                <p className="text-sm text-[var(--text-primary)] leading-relaxed">
+                  {answer.text}
+                </p>
+              </div>
+            );
+          })}
+        </div>
 
         {!hasAccepted && !showCompose && (
           <button
             type="button"
             onClick={() => setShowCompose(true)}
-            className="glass w-full py-3 px-4 rounded-2xl border border-white/40 text-indigo-600 hover:opacity-90 transition text-sm"
+            className="btn-ghost w-full py-4 px-5 text-[var(--accent-violet)] text-sm font-medium"
           >
             Add answer
           </button>
         )}
         {showCompose && (
-          <div className="glass rounded-2xl p-4">
+          <div className="glass-card p-6">
             <ComposeAnswer
               questionId={question.id}
               onSuccess={handleCommentPosted}
@@ -168,18 +185,18 @@ export function QuestionCanvas({ question }: { question: PostDetailNote }) {
         )}
       </div>
 
-      {/* Inter-page: Answer another, Browse categories */}
-      <div className="flex flex-wrap gap-3 pt-2 border-t border-indigo-100/60">
+      {/* Footer links */}
+      <div className="flex flex-wrap gap-4 pt-3 border-t border-[var(--border-subtle)]">
         <button
           type="button"
           onClick={() => router.push("/home/answer")}
-          className="text-sm font-medium text-indigo-600 hover:text-indigo-800 hover:underline"
+          className="text-sm font-medium text-[var(--accent-violet)] hover:underline"
         >
           Answer another
         </button>
         <Link
           href="/categories"
-          className="text-sm font-medium text-green-600 hover:text-green-800 hover:underline"
+          className="text-sm font-medium text-[var(--accent-emerald)] hover:underline"
         >
           Browse categories
         </Link>

@@ -1,22 +1,17 @@
 import { NextResponse } from "next/server";
-import { db } from "@/lib/db";
-import { getCategories, isFakeDataEnabled } from "@/lib/fake-data";
+import { isFakeDataEnabled } from "@/lib/fake-data";
 import { CATEGORIES } from "@/lib/categories";
+import { getQuestionCountByCategory } from "@/lib/notes-sql";
 
+/** Categories are static and hardcoded on the backend. Counts from DB when available. */
 export async function GET() {
   if (isFakeDataEnabled()) {
-    return NextResponse.json(getCategories());
+    return NextResponse.json(
+      CATEGORIES.map((cat) => ({ ...cat, _count: { questions: 0 } }))
+    );
   }
 
-  // Categories are a fixed list. Count questions per category from the DB.
-  const counts = await db.note.groupBy({
-    by: ["category"],
-    where: { type: "QUESTION" },
-    _count: { _all: true },
-  });
-
-  const countMap = new Map(counts.map((c) => [c.category, c._count._all]));
-
+  const countMap = await getQuestionCountByCategory();
   const result = CATEGORIES.map((cat) => ({
     ...cat,
     _count: { questions: countMap.get(cat.id) ?? 0 },

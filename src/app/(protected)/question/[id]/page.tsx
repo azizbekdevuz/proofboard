@@ -1,19 +1,23 @@
 import { Page } from "@/components/PageLayout";
-import { TopBar } from "@worldcoin/mini-apps-ui-kit-react";
 import { QuestionCanvas } from "@/components/QuestionCanvas";
+import { QuestionPageHeader } from "./QuestionPageHeader";
 import { notFound } from "next/navigation";
-import { db } from "@/lib/db";
 import {
   getNoteById,
   getAnswersForQuestion,
   isFakeDataEnabled,
 } from "@/lib/fake-data";
+import {
+  getQuestionById,
+  getAnswersForQuestion as getAnswersForQuestionSql,
+  incrementView,
+  toNoteApiResponse,
+} from "@/lib/notes-sql";
 import { getCategoryName } from "@/lib/categories";
 import { getCategoryGradientClasses } from "@/lib/category-colors";
-import { QuestionPageBack } from "./back";
 
 /**
- * Question detail – canvas-style layout with question card, answer cards, category link
+ * Question detail – immersive dark canvas.
  */
 export default async function QuestionPage({
   params,
@@ -53,21 +57,14 @@ export default async function QuestionPage({
       note = { ...fakeNote, answers };
     }
   } else {
-    const dbNote = await db.note.findUnique({
-      where: { id },
-      include: {
-        user: { select: { username: true, wallet: true } },
-      },
-    });
-    if (dbNote && dbNote.type === "QUESTION") {
-      const dbAnswers = await db.note.findMany({
-        where: { type: "ANSWER", referenceId: id },
-        include: {
-          user: { select: { username: true, wallet: true } },
-        },
-        orderBy: { createdAt: "asc" },
-      });
-      note = { ...dbNote, answers: dbAnswers };
+    const dbNote = await getQuestionById(id);
+    if (dbNote) {
+      await incrementView(id);
+      const dbAnswers = await getAnswersForQuestionSql(id);
+      note = {
+        ...toNoteApiResponse(dbNote),
+        answers: dbAnswers.map(toNoteApiResponse),
+      };
     }
   }
 
@@ -94,12 +91,10 @@ export default async function QuestionPage({
 
   return (
     <>
-      <Page.Header className="p-0">
-        <TopBar
-          title={title || "Thought"}
-          startAdornment={<QuestionPageBack categoryId={serialized.category} />}
-        />
-      </Page.Header>
+      <QuestionPageHeader
+        categoryId={serialized.category}
+        title={title}
+      />
       <Page.Main
         className={`p-6 flex flex-col min-h-0 ${getCategoryGradientClasses(serialized.category)}`}
       >

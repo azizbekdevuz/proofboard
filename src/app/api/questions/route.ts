@@ -1,22 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { auth } from "@/auth";
-import {
-  verifyCloudProof,
-  IVerifyResponse,
-  ISuccessResult,
-} from "@worldcoin/minikit-js";
+import { verifyCloudProof, ISuccessResult } from "@worldcoin/minikit-js";
+import type { VerifyResponseWithDetails } from "@/lib/types";
 import {
   getBoardQuestions,
   getArchiveQuestions,
   addQuestion,
   isFakeDataEnabled,
 } from "@/lib/fake-data";
+import {
+  getBoardQuestions as getBoardQuestionsSql,
+  getArchiveQuestions as getArchiveQuestionsSql,
+  createQuestion,
+  toNoteApiResponse,
+} from "@/lib/notes-sql";
 
 /**
  * GET /api/questions
  * Returns board questions (no accepted answer) by default.
  * ?archive=true returns past/completed questions (sorted by likes DESC).
+ * Uses raw SQL for notes.
  */
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -31,37 +35,12 @@ export async function GET(req: NextRequest) {
   }
 
   if (archive) {
-    // Past archive: questions with an accepted answer, sorted by likes DESC
-    const notes = await db.note.findMany({
-      where: {
-        type: "QUESTION",
-        NOT: { acceptedAnswerId: "" },
-        ...(categoryId ? { category: categoryId } : {}),
-      },
-      include: {
-        user: { select: { username: true, wallet: true } },
-      },
-      orderBy: { likesCount: "desc" },
-      take: 50,
-    });
-    return NextResponse.json(notes);
+    const notes = await getArchiveQuestionsSql(categoryId ?? null);
+    return NextResponse.json(notes.map(toNoteApiResponse));
   }
 
-  // Board: questions without an accepted answer
-  const notes = await db.note.findMany({
-    where: {
-      type: "QUESTION",
-      acceptedAnswerId: "",
-      ...(categoryId ? { category: categoryId } : {}),
-    },
-    include: {
-      user: { select: { username: true, wallet: true } },
-    },
-    orderBy: { createdAt: "desc" },
-    take: 100,
-  });
-
-  return NextResponse.json(notes);
+  const notes = await getBoardQuestionsSql(categoryId ?? null);
+  return NextResponse.json(notes.map(toNoteApiResponse));
 }
 
 export async function POST(req: NextRequest) {
@@ -95,7 +74,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "too_long" }, { status: 400 });
   }
 
-  // Verify World ID proof (required for posting questions)
+  // World ID verification required for posting questions
   if (!proof) {
     return NextResponse.json(
       {
@@ -109,7 +88,11 @@ export async function POST(req: NextRequest) {
   const action = process.env.NEXT_PUBLIC_ACTION_POST_QUESTION;
   if (!action) {
     return NextResponse.json(
-      { error: "server_error", message: "Action ID not configured" },
+      {
+        error: "server_error",
+        message:
+          "Action ID not configured. Set NEXT_PUBLIC_ACTION_POST_QUESTION in .env.local (see .env.sample).",
+      },
       { status: 500 }
     );
   }
@@ -117,7 +100,11 @@ export async function POST(req: NextRequest) {
   const app_id = process.env.APP_ID as `app_${string}`;
   if (!app_id) {
     return NextResponse.json(
-      { error: "server_error", message: "APP_ID not configured" },
+      {
+        error: "server_error",
+        message:
+          "APP_ID not configured. Set APP_ID in .env.local (see .env.sample).",
+      },
       { status: 500 }
     );
   }
@@ -127,20 +114,20 @@ export async function POST(req: NextRequest) {
     app_id,
     action,
     categoryId
-  )) as IVerifyResponse;
+  )) as VerifyResponseWithDetails;
 
   if (!verifyRes.success) {
     const errorMessage =
-      (verifyRes as any).error || "World ID verification failed.";
+      verifyRes.error || verifyRes.message || "World ID verification failed.";
+    const errorCode = verifyRes.code ?? "verification_failed";
     return NextResponse.json(
-      { error: "verification_failed", message: errorMessage },
+      { error: errorCode, message: errorMessage },
       { status: 400 }
     );
   }
 
   const nullifier =
-    (verifyRes as any).nullifier_hash ??
-    (proof as ISuccessResult).nullifier_hash;
+    verifyRes.nullifier_hash ?? (proof as ISuccessResult).nullifier_hash;
   const existingProof = await db.actionProof.findFirst({
     where: { action, nullifier },
   });
@@ -177,18 +164,14 @@ export async function POST(req: NextRequest) {
     create: { wallet, username },
   });
 
-  const note = await db.note.create({
-    data: {
-      userId: user.id,
-      category: categoryId,
-      type: "QUESTION",
-      referenceId: "",
-      text,
-    },
-    include: {
-      user: { select: { username: true, wallet: true } },
-    },
+  const note = await createQuestion({
+    userId: user.id,
+    category: categoryId,
+    text,
   });
+  if (!note) {
+    return NextResponse.json({ error: "server_error" }, { status: 500 });
+  }
 
-  return NextResponse.json(note);
+  return NextResponse.json(toNoteApiResponse(note));
 }

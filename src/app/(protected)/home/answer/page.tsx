@@ -1,16 +1,16 @@
 "use client";
 
 import { Page } from "@/components/PageLayout";
-import { TopBar, Button } from "@worldcoin/mini-apps-ui-kit-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useCallback } from "react";
 import { PostCard, type PostCardNote } from "@/components/PostCard";
 import { fetchWithTimeout } from "@/lib/network";
-import type { CategoryWithCount } from "@/libs/types";
-import { NavArrowLeft } from "iconoir-react";
+import type { CategoryWithCount } from "@/lib/types";
+import { AppHeader } from "@/components/AppHeader";
+import { RefreshDouble, GridPlus } from "iconoir-react";
 
 /**
- * Answer flow – random questions from different categories. Shuffle client-side.
+ * Answer flow – random questions, dark premium grid.
  */
 export default function AnswerPage() {
   const router = useRouter();
@@ -27,14 +27,10 @@ export default function AnswerPage() {
         fetchWithTimeout("/api/categories"),
         fetchWithTimeout("/api/questions"),
       ]);
-      if (catRes.ok) {
-        const data = await catRes.json();
-        setCategories(data || []);
-      }
+      if (catRes.ok) setCategories((await catRes.json()) || []);
       if (qRes.ok) {
         const data = await qRes.json();
-        const shuffled = [...(data || [])].sort(() => Math.random() - 0.5);
-        setQuestions(shuffled);
+        setQuestions([...(data || [])].sort(() => Math.random() - 0.5));
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not load. Tap Retry.");
@@ -55,61 +51,57 @@ export default function AnswerPage() {
 
   return (
     <>
-      <Page.Header className="p-0">
-        <TopBar
-          title="Answer"
-          startAdornment={
-            <button
-              type="button"
-              onClick={() => router.push("/home")}
-              className="touch-target flex items-center justify-center p-2 -ml-1 rounded-full hover:bg-gray-100 active:bg-gray-200"
-              aria-label="Back"
-            >
-              <NavArrowLeft className="w-6 h-6 text-gray-700" />
-            </button>
-          }
-        />
-      </Page.Header>
-      <Page.Main className="flex flex-col bg-linear-to-b from-yellow-50/50 via-white to-blue-50/40 min-h-0">
-        <div className="mb-3">
-          <button
-            type="button"
-            onClick={() => router.push("/categories")}
-            className="text-sm font-medium text-indigo-600 hover:underline"
-          >
-            Browse by category
-          </button>
-        </div>
+      <AppHeader backHref="/home" title="Answer" />
+
+      <Page.Main className="flex flex-col gap-4 min-h-0">
+        <button
+          type="button"
+          onClick={() => router.push("/categories")}
+          className="text-sm font-medium text-[var(--accent-violet)] hover:underline flex items-center gap-1.5 w-fit"
+        >
+          <GridPlus className="w-4 h-4" />
+          Browse by category
+        </button>
 
         {loading ? (
           <div className="grid grid-cols-2 gap-3">
             {[1, 2, 3, 4, 5, 6].map((i) => (
               <div
                 key={i}
-                className="aspect-square rounded-xl bg-indigo-100/50 animate-pulse"
+                className="aspect-square rounded-[var(--card-radius)] skeleton"
               />
             ))}
           </div>
         ) : error ? (
-          <div className="flex flex-col items-center justify-center py-12 gap-3">
-            <p className="text-gray-600 text-center text-sm">{error}</p>
-            <Button variant="primary" size="lg" onClick={load}>
+          <div className="flex flex-col items-center justify-center py-16 gap-4">
+            <p className="text-[var(--text-secondary)] text-center text-sm">
+              {error}
+            </p>
+            <button
+              type="button"
+              onClick={load}
+              className="btn-accent px-6 py-4 flex items-center gap-2 text-sm"
+            >
+              <RefreshDouble className="w-4 h-4" />
               Retry
-            </Button>
+            </button>
           </div>
         ) : enrichedQuestions.length === 0 ? (
-          <div className="py-12 text-center text-gray-500">
-            <p>No questions to answer yet.</p>
+          <div className="py-16 text-center flex flex-col items-center gap-3">
+            <div className="text-4xl">🤷</div>
+            <p className="text-[var(--text-tertiary)]">
+              No questions to answer yet.
+            </p>
             <button
               type="button"
               onClick={() => router.push("/categories")}
-              className="mt-2 text-sm font-medium text-indigo-600 hover:underline"
+              className="text-sm font-medium text-[var(--accent-violet)] hover:underline"
             >
               Browse categories
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3 stagger-children">
             {enrichedQuestions.map((q) => (
               <PostCard key={q.id} question={q} />
             ))}

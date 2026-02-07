@@ -3,7 +3,7 @@
  * Order matters: Dating/Romance, Family, Self, Crypto, Business, Other.
  */
 
-import type { Category } from "@/libs/types";
+import type { Category } from "@/lib/types";
 
 export type { Category };
 export const CATEGORIES: Category[] = [

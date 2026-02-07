@@ -3,13 +3,12 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useCallback } from "react";
 import { PostCard, type PostCardNote } from "@/components/PostCard";
-import { Button } from "@worldcoin/mini-apps-ui-kit-react";
 import { fetchWithTimeout, getResponseError } from "@/lib/network";
-import type { Category } from "@/libs/types";
+import type { Category } from "@/lib/types";
+import { RefreshDouble, MessageText } from "iconoir-react";
 
 /**
- * Category view - Grid of post cards (Figma Category Name screen)
- * Timeout + error/retry to avoid infinite loading (World App Technical Requirements).
+ * Category view – dark grid of post cards.
  */
 export function CategoryGrid({ categoryId }: { categoryId: string }) {
   const [category, setCategory] = useState<Category | null>(null);
@@ -59,7 +58,7 @@ export function CategoryGrid({ categoryId }: { categoryId: string }) {
         {[1, 2, 3, 4, 5, 6].map((i) => (
           <div
             key={i}
-            className="aspect-square rounded-2xl cat-grid-skeleton animate-pulse"
+            className="aspect-square rounded-[var(--card-radius)] skeleton"
           />
         ))}
       </div>
@@ -68,23 +67,30 @@ export function CategoryGrid({ categoryId }: { categoryId: string }) {
 
   if (error) {
     return (
-      <div className="py-12 flex flex-col items-center justify-center gap-3">
-        <p className="text-gray-600 text-center text-sm">{error}</p>
-        <Button variant="primary" size="lg" onClick={load}>
+      <div className="py-16 flex flex-col items-center justify-center gap-4">
+        <p className="text-[var(--text-secondary)] text-center text-sm">
+          {error}
+        </p>
+        <button
+          type="button"
+          onClick={load}
+          className="btn-accent px-6 py-4 flex items-center gap-2 text-sm"
+        >
+          <RefreshDouble className="w-4 h-4" />
           Retry
-        </Button>
+        </button>
       </div>
     );
   }
 
   if (!category) {
     return (
-      <div className="py-12 text-center text-gray-500">
-        Category not found
+      <div className="py-16 text-center">
+        <p className="text-[var(--text-tertiary)]">Category not found</p>
         <button
           type="button"
           onClick={() => router.push("/categories")}
-          className="block mt-2 text-indigo-600 hover:underline font-medium"
+          className="mt-3 text-sm font-medium text-[var(--accent-violet)] hover:underline"
         >
           Back to Categories
         </button>
@@ -94,13 +100,17 @@ export function CategoryGrid({ categoryId }: { categoryId: string }) {
 
   if (questions.length === 0) {
     return (
-      <div className="py-12 text-center">
-        <p className="text-gray-600 mb-1">Be the first to share a thought in this category.</p>
+      <div className="py-16 text-center flex flex-col items-center gap-3">
+        <div className="text-4xl">💭</div>
+        <p className="text-[var(--text-secondary)] text-sm">
+          Be the first to share a thought here.
+        </p>
         <button
           type="button"
           onClick={() => router.push("/home/create")}
-          className="text-sm font-medium text-indigo-600 hover:text-indigo-800 hover:underline"
+          className="text-sm font-medium text-[var(--accent-violet)] hover:underline flex items-center gap-1.5"
         >
+          <MessageText className="w-4 h-4" />
           Ask a question
         </button>
       </div>
@@ -108,21 +118,23 @@ export function CategoryGrid({ categoryId }: { categoryId: string }) {
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="grid grid-cols-2 gap-3">
+    <div className="flex flex-col gap-5">
+      <div className="grid grid-cols-2 gap-3 stagger-children">
         {questions.map((q) => (
-          <PostCard key={q.id} question={{ ...q, categoryName: category.name }} />
+          <PostCard
+            key={q.id}
+            question={{ ...q, categoryName: category.name }}
+          />
         ))}
       </div>
-      <p className="pt-2">
-        <button
-          type="button"
-          onClick={() => router.push("/home/create")}
-          className="text-sm font-medium text-indigo-600 hover:underline"
-        >
-          Ask a question
-        </button>
-      </p>
+      <button
+        type="button"
+        onClick={() => router.push("/home/create")}
+        className="text-sm font-medium text-[var(--accent-violet)] hover:underline flex items-center gap-1.5"
+      >
+        <MessageText className="w-4 h-4" />
+        Ask a question
+      </button>
     </div>
   );
 }

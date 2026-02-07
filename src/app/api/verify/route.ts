@@ -1,13 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyCloudProof, IVerifyResponse } from "@worldcoin/minikit-js";
+import { verifyCloudProof } from "@worldcoin/minikit-js";
 import { db } from "@/lib/db";
-import type { VerifyRequestPayload } from "@/libs/types";
+import type {
+  VerifyRequestPayload,
+  VerifyResponseWithDetails,
+} from "@/lib/types";
 
 export async function POST(req: NextRequest) {
-  const { payload, action, signal } = (await req.json()) as VerifyRequestPayload;
+  const { payload, action, signal } =
+    (await req.json()) as VerifyRequestPayload;
 
   const app_id = process.env.APP_ID as `app_${string}`;
-  const verifyRes = (await verifyCloudProof(payload, app_id, action, signal)) as IVerifyResponse;
+  const verifyRes = (await verifyCloudProof(
+    payload,
+    app_id,
+    action,
+    signal
+  )) as VerifyResponseWithDetails;
 
   if (!verifyRes.success) {
     return NextResponse.json({ verifyRes }, { status: 400 });
@@ -15,11 +24,14 @@ export async function POST(req: NextRequest) {
 
   // Anti-replay: store nullifier_hash per action
   // World verify endpoint enforces per-action limits; you also persist to avoid your own double-processing.
-  const nullifier = (verifyRes as any).nullifier_hash ?? payload.nullifier_hash; // depending on wrapper response
+  const nullifier = verifyRes.nullifier_hash ?? payload.nullifier_hash; // depending on wrapper response
   try {
     await db.actionProof.create({ data: { action, nullifier } });
   } catch {
-    return NextResponse.json({ verifyRes: { success: false, error: "replay" } }, { status: 400 });
+    return NextResponse.json(
+      { verifyRes: { success: false, error: "replay" } },
+      { status: 400 }
+    );
   }
 
   return NextResponse.json({ verifyRes }, { status: 200 });

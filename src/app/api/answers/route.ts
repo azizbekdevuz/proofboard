@@ -1,17 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { auth } from "@/auth";
-import {
-  verifyCloudProof,
-  IVerifyResponse,
-  ISuccessResult,
-} from "@worldcoin/minikit-js";
+import { verifyCloudProof, ISuccessResult } from "@worldcoin/minikit-js";
+import type { VerifyResponseWithDetails } from "@/lib/types";
 import {
   addAnswer,
   getAnswersForQuestion,
-  getNoteById,
   isFakeDataEnabled,
 } from "@/lib/fake-data";
+import {
+  getQuestionById,
+  createAnswer,
+  incrementAnswersNum,
+  getAnswersForQuestion as getAnswersForQuestionSql,
+  toNoteApiResponse,
+} from "@/lib/notes-sql";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -25,15 +28,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(getAnswersForQuestion(questionId));
   }
 
-  const answers = await db.note.findMany({
-    where: { type: "ANSWER", referenceId: questionId },
-    include: {
-      user: { select: { username: true, wallet: true } },
-    },
-    orderBy: { createdAt: "asc" },
-  });
-
-  return NextResponse.json(answers);
+  const answers = await getAnswersForQuestionSql(questionId);
+  return NextResponse.json(answers.map(toNoteApiResponse));
 }
 
 export async function POST(req: NextRequest) {
@@ -70,7 +66,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "too_long" }, { status: 400 });
   }
 
-  // Verify World ID proof (required for posting answers)
+  // World ID verification required for posting answers
   if (!proof) {
     return NextResponse.json(
       {
@@ -102,11 +98,10 @@ export async function POST(req: NextRequest) {
     app_id,
     action,
     questionId
-  )) as IVerifyResponse;
+  )) as VerifyResponseWithDetails;
 
   if (!verifyRes.success) {
-    const errorMessage =
-      (verifyRes as any).error || "World ID verification failed.";
+    const errorMessage = verifyRes.error || "World ID verification failed.";
     return NextResponse.json(
       { error: "verification_failed", message: errorMessage },
       { status: 400 }
@@ -114,8 +109,7 @@ export async function POST(req: NextRequest) {
   }
 
   const nullifier =
-    (verifyRes as any).nullifier_hash ??
-    (proof as ISuccessResult).nullifier_hash;
+    verifyRes.nullifier_hash ?? (proof as ISuccessResult).nullifier_hash;
   const existingProof = await db.actionProof.findFirst({
     where: { action, nullifier },
   });
@@ -142,10 +136,8 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const questionNote = await db.note.findUnique({
-    where: { id: questionId },
-  });
-  if (!questionNote || questionNote.type !== "QUESTION") {
+  const questionNote = await getQuestionById(questionId);
+  if (!questionNote) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
@@ -158,24 +150,17 @@ export async function POST(req: NextRequest) {
     create: { wallet, username },
   });
 
-  const answerNote = await db.note.create({
-    data: {
-      userId: user.id,
-      category: questionNote.category,
-      type: "ANSWER",
-      referenceId: questionId,
-      text,
-    },
-    include: {
-      user: { select: { username: true, wallet: true } },
-    },
+  const answerNote = await createAnswer({
+    userId: user.id,
+    questionId,
+    category: questionNote.category,
+    text,
   });
+  if (!answerNote) {
+    return NextResponse.json({ error: "server_error" }, { status: 500 });
+  }
 
-  // Bump the question's answersNum
-  await db.note.update({
-    where: { id: questionId },
-    data: { answersNum: { increment: 1 } },
-  });
+  await incrementAnswersNum(questionId);
 
-  return NextResponse.json(answerNote);
+  return NextResponse.json(toNoteApiResponse(answerNote));
 }

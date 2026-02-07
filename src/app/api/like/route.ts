@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
 import { auth } from "@/auth";
 import { likeQuestionFake, getNoteById, isFakeDataEnabled } from "@/lib/fake-data";
+import { incrementLike } from "@/lib/notes-sql";
 
 /**
  * POST /api/like
- * Like a question. Liked questions appear higher in the past-question archive.
+ * Like a question (real SQL). Liked questions appear higher in the past-question archive.
  */
 export async function POST(req: NextRequest) {
   const session = await auth();
@@ -27,15 +27,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ liked: true, likesCount: q.likesCount });
   }
 
-  const q = await db.note.findUnique({ where: { id: questionId } });
-  if (!q || q.type !== "QUESTION") {
+  const result = await incrementLike(questionId);
+  if (!result) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
-  const updated = await db.note.update({
-    where: { id: questionId },
-    data: { likesCount: { increment: 1 } },
-  });
-
-  return NextResponse.json({ liked: true, likesCount: updated.likesCount });
+  return NextResponse.json({ liked: true, likesCount: result.likesCount });
 }
