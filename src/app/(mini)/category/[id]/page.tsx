@@ -1,8 +1,7 @@
 'use client';
 
-import { Page } from '@/components/PageLayout';
-import { TopBar } from '@worldcoin/mini-apps-ui-kit-react';
-import { use } from 'react';
+import { use, useEffect, useState } from 'react';
+import { AppShell } from '@/components/AppShell';
 import { CategoryBoard } from '@/components/CategoryBoard';
 
 /**
@@ -15,15 +14,35 @@ export default function CategoryPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
+  const [categoryName, setCategoryName] = useState('Category');
+
+  // Fetch category name for header
+  useEffect(() => {
+    const fetchCategory = async () => {
+      try {
+        const response = await fetch('/api/categories');
+        const categories = await response.json();
+        const category = categories.find((c: any) => c.id === id);
+        if (category) {
+          setCategoryName(category.name);
+        }
+      } catch (error) {
+        console.error('Failed to fetch category:', error);
+      }
+    };
+    fetchCategory();
+  }, [id]);
 
   return (
-    <>
-      <Page.Header className="p-0">
-        <TopBar title="Category Board" />
-      </Page.Header>
-      <Page.Main className="p-4">
+    <AppShell
+      showBottomNav={true}
+      showTopHeader={true}
+      showBackButton={true}
+      title={categoryName}
+    >
+      <div className="p-4">
         <CategoryBoard categoryId={id} />
-      </Page.Main>
-    </>
+      </div>
+    </AppShell>
   );
 }

@@ -119,12 +119,12 @@ export async function POST(req: NextRequest) {
   console.log('Verification successful, nullifier:', nullifier);
 
   // Check ownership first (before consuming verification attempt)
-  const q = await db.question.findUnique({
+  const q = await db.note.findUnique({
     where: { id: questionId },
     include: { user: true },
   });
   
-  if (!q) {
+  if (!q || q.type !== 'QUESTION') {
     return NextResponse.json({ 
       error: "not_found",
       message: "Question not found",
@@ -156,19 +156,47 @@ export async function POST(req: NextRequest) {
         throw error;
       }
 
-      // 2. Accept answer
-      const updated = await tx.question.update({
+      // 2. Verify answer exists and is of type ANSWER
+      const answer = await tx.note.findUnique({
+        where: { id: answerId },
+        select: { type: true, parentId: true },
+      });
+
+      if (!answer || answer.type !== 'ANSWER' || answer.parentId !== questionId) {
+        throw new Error('INVALID_ANSWER');
+      }
+
+      // 3. Accept answer
+      const updated = await tx.note.update({
         where: { id: questionId },
-        data: { acceptedId: answerId },
+        data: { acceptedAnswerId: answerId },
         include: {
           user: { select: { username: true, wallet: true } },
-          answers: {
-            include: { user: { select: { username: true } } },
+          children: {
+            where: { deletedAt: null },
+            include: { user: { select: { username: true, wallet: true } } },
           },
         },
       });
 
-      return updated;
+      // Transform to match old API shape for backward compatibility
+      return {
+        id: updated.id,
+        categoryId: updated.categoryId,
+        userId: updated.userId,
+        text: updated.text,
+        createdAt: updated.createdAt,
+        acceptedId: updated.acceptedAnswerId,
+        user: updated.user,
+        answers: updated.children.map(child => ({
+          id: child.id,
+          questionId: updated.id,
+          userId: child.userId,
+          text: child.text,
+          createdAt: child.createdAt,
+          user: child.user,
+        })),
+      };
     });
 
     console.log('Answer accepted successfully:', answerId);
@@ -183,6 +211,13 @@ export async function POST(req: NextRequest) {
         action,
         signal,
       }, { status: 409 });
+    }
+
+    if (error.message === 'INVALID_ANSWER') {
+      return NextResponse.json({
+        error: "bad_request",
+        message: "Invalid answer or answer does not belong to this question",
+      }, { status: 400 });
     }
 
     console.error('Transaction failed:', error);

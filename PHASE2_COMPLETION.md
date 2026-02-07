@@ -1,168 +1,348 @@
-# PHASE 2: VERIFY GATING FOR ACTIONS - COMPLETE
+# PHASE 2 COMPLETION: Schema Refactor to Unified Note Model
 
-## ✅ IMPLEMENTATION COMPLETE
+## ✅ Status: COMPLETE
 
-### 1. **API Routes - Verify Gating**
-All three critical actions now require World ID verification:
-
-#### **POST /api/questions**
-- ✅ Requires `proof` in request body
-- ✅ Verifies proof server-side using `verifyCloudProof`
-- ✅ Uses `categoryId` as signal
-- ✅ Checks for replay attacks (nullifier storage)
-- ✅ Returns meaningful error messages:
-  - `verification_required` - No proof provided
-  - `verification_failed` - Proof invalid or limit reached
-  - `already_used` - Proof was already consumed
-  - `too_long` - Text exceeds 300 characters
-
-#### **POST /api/answers**
-- ✅ Requires `proof` in request body
-- ✅ Verifies proof server-side using `verifyCloudProof`
-- ✅ Uses `questionId` as signal
-- ✅ Checks for replay attacks (nullifier storage)
-- ✅ Same error handling as questions
-
-#### **POST /api/accept**
-- ✅ Requires `proof` in request body
-- ✅ Verifies proof server-side using `verifyCloudProof`
-- ✅ Uses `questionId` as signal
-- ✅ Checks ownership (only question owner can accept)
-- ✅ Checks for replay attacks (nullifier storage)
-- ✅ Returns meaningful error messages
-
-### 2. **Anti-Replay Protection**
-- ✅ All routes check for existing nullifier before processing
-- ✅ Store nullifier after successful verification
-- ✅ Handle race conditions (try-catch on create)
-- ✅ Uses Prisma compound unique constraint `@@unique([action, nullifier])`
-
-### 3. **Error Handling**
-- ✅ User-friendly error messages
-- ✅ Proper HTTP status codes:
-  - `400` - Bad request / verification failed
-  - `401` - Unauthorized (no session)
-  - `403` - Forbidden (verification required / ownership)
-  - `404` - Not found
-  - `500` - Server error (missing config)
-- ✅ Error messages explain what went wrong
-
-### 4. **verifyAndConsume Helper**
-- **File**: `src/components/verify.ts`
-- ✅ Improved error messages
-- ✅ Handles limit_reached error code
-- ✅ Better error propagation from API
-- ✅ Type-safe return value
+All API routes have been updated to use the new unified Note model while maintaining backward compatibility with the frontend.
 
 ---
 
-## 🔒 SECURITY FEATURES
+## Changes Summary
 
-### Server-Side Verification
-- ✅ All proofs verified using `verifyCloudProof` on server
-- ✅ Never trust client-side verification
-- ✅ Uses `APP_ID` from environment (server-only)
+### 1. Schema Changes ✅
+**File**: `prisma/schema.prisma`
 
-### Replay Protection
-- ✅ Nullifier hash stored in database
-- ✅ Compound unique constraint prevents duplicates
-- ✅ Check before processing, store after verification
-- ✅ Race condition handling
+- ✅ Created `Note` model (unified Question + Answer)
+- ✅ Created `NoteLike` model (engagement tracking)
+- ✅ Created `NoteView` model (view tracking with day buckets)
+- ✅ Created `NoteType` enum (QUESTION | ANSWER)
+- ✅ Added soft delete support (`deletedAt`)
+- ✅ Added engagement counts (`likeCount`, `viewCount`)
+- ✅ Updated `User` relations (notes, likes, views)
+- ✅ Updated `Category` relations (notes instead of questions)
+- ✅ Added performance indexes
 
-### Rate Limiting
-- ✅ World Dev Portal enforces per-action limits
-- ✅ Server verification respects portal limits
-- ✅ Clear error messages when limits reached
+### 2. Action IDs ✅
+**File**: `src/lib/worldActions.ts`
 
-### Signal Usage
-- ✅ `categoryId` as signal for questions (prevents cross-category reuse)
-- ✅ `questionId` as signal for answers/accept (prevents cross-question reuse)
+- ✅ Added `getActionLikeNote()` for like toggle
+- ✅ Added `getActionViewNote()` for view recording
+- ✅ Added `getActionCreateNote()` for future unification
+- ✅ Kept existing actions for backward compatibility
+- ✅ Added comprehensive documentation
+
+### 3. Seed Script ✅
+**File**: `prisma/seed.ts`
+
+- ✅ Updated to seed categories
+- ✅ Added sample Note creation (1 question + 1 answer)
+- ✅ Uses new Note model with type field
+
+### 4. API Routes Updated ✅
+
+#### `/api/categories` ✅
+- Changed `_count: { select: { questions: true } }` → `_count: { select: { notes: true } }`
+
+#### `/api/questions` (GET) ✅
+- Queries `Note` table with `type: 'QUESTION'`
+- Filters out soft-deleted notes (`deletedAt: null`)
+- Includes `children` (answers) instead of `answers` relation
+- Transforms response to match old API shape for backward compatibility
+
+#### `/api/questions` (POST) ✅
+- Creates `Note` with `type: 'QUESTION'`
+- Maintains atomic verify+write transaction pattern
+- Transforms response to match old API shape
+
+#### `/api/answers` (GET) ✅
+- Queries `Note` table with `type: 'ANSWER'` and `parentId: questionId`
+- Filters out soft-deleted notes
+- Transforms response to match old API shape
+
+#### `/api/answers` (POST) ✅
+- Validates parent question exists and is of type `QUESTION`
+- Creates `Note` with `type: 'ANSWER'` and `parentId: questionId`
+- Inherits `categoryId` from parent question
+- Maintains atomic verify+write transaction pattern
+- Transforms response to match old API shape
+- Added `INVALID_PARENT` error handling
+
+#### `/api/accept` ✅
+- Validates question is of type `QUESTION`
+- Validates answer is of type `ANSWER` and belongs to question
+- Updates `acceptedAnswerId` field (renamed from `acceptedId`)
+- Maintains atomic verify+write transaction pattern
+- Transforms response to match old API shape
+- Added `INVALID_ANSWER` error handling
+
+#### `/api/my/questions` ✅
+- Queries `Note` table with `type: 'QUESTION'` and `userId`
+- Filters out soft-deleted notes
+- Uses `_count: { children }` instead of `_count: { answers }`
+- Transforms response to match old API shape
+
+#### `/api/my/answers` ✅
+- Queries `Note` table with `type: 'ANSWER'` and `userId`
+- Filters out soft-deleted notes
+- Includes `parent` (question) instead of `question` relation
+- Transforms response to match old API shape
 
 ---
 
-## 📋 PHASE 2 VERIFICATION CHECKLIST
+## Backward Compatibility Strategy
 
-### 1. **Build Check**
-```bash
-pnpm build
+All API routes maintain the old response shapes by transforming the new Note model data:
+
+### Old Shape (Question)
+```json
+{
+  "id": "...",
+  "categoryId": "...",
+  "userId": "...",
+  "text": "...",
+  "createdAt": "...",
+  "acceptedId": "...",
+  "answers": [...],
+  "_count": { "answers": 5 }
+}
 ```
-**Expected**: Build succeeds without errors
 
-### 2. **TypeScript Check**
-```bash
-npx tsc --noEmit
+### New Internal Model (Note)
+```json
+{
+  "id": "...",
+  "type": "QUESTION",
+  "parentId": null,
+  "categoryId": "...",
+  "userId": "...",
+  "text": "...",
+  "likeCount": 0,
+  "viewCount": 0,
+  "acceptedAnswerId": "...",
+  "createdAt": "...",
+  "updatedAt": "...",
+  "deletedAt": null,
+  "children": [...]
+}
 ```
-**Expected**: No TypeScript errors
 
-### 3. **Environment Variables**
-Ensure these are set in `.env.local`:
-- ✅ `APP_ID` - Your World App ID
-- ✅ `NEXT_PUBLIC_ACTION_POST_QUESTION` - Action ID for posting questions
-- ✅ `NEXT_PUBLIC_ACTION_POST_ANSWER` - Action ID for posting answers
-- ✅ `NEXT_PUBLIC_ACTION_ACCEPT_ANSWER` - Action ID for accepting answers
-
-### 4. **Database Schema**
-- ✅ `ActionProof` model exists with `@@unique([action, nullifier])`
-- ✅ Run migrations: `npx prisma migrate dev`
-
-### 5. **Test API Routes** (Manual testing)
-1. **Test POST /api/questions without proof:**
-   ```bash
-   curl -X POST http://localhost:3000/api/questions \
-     -H "Content-Type: application/json" \
-     -d '{"categoryId":"test","text":"Test question"}'
-   ```
-   **Expected**: `403` with `verification_required` error
-
-2. **Test with invalid proof:**
-   - Should return `400` with `verification_failed`
-
-3. **Test with valid proof:**
-   - Should create question and return `200`
-
-4. **Test replay attack:**
-   - Use same proof twice
-   - Second request should return `400` with `already_used`
-
----
-
-## 🎯 WHAT'S WORKING
-
-- ✅ All actions gated by World ID verification
-- ✅ Server-side proof verification
-- ✅ Replay attack prevention
-- ✅ Meaningful error messages
-- ✅ Proper HTTP status codes
-- ✅ Signal-based verification (categoryId/questionId)
-- ✅ Ownership checks for accept action
-
----
-
-## ⚠️ NOTES FOR NEXT PHASES
-
-### Phase 3 (CRUD + UI)
-- Client-side UI needs to call `verifyAndConsume` before API calls
-- Pass `proof` in request body to API routes
-- Handle error messages in UI
-- Show loading states during verification
-
-### Example Client Flow:
+### Transformation Applied
 ```typescript
-// 1. User fills form
-// 2. User taps submit
-// 3. Call verifyAndConsume(action, signal)
-// 4. If successful, call API with proof
-// 5. Handle errors and show to user
+{
+  id: note.id,
+  categoryId: note.categoryId,
+  userId: note.userId,
+  text: note.text,
+  createdAt: note.createdAt,
+  acceptedId: note.acceptedAnswerId, // Renamed field
+  answers: note.children.map(...),   // Renamed relation
+  _count: { answers: note._count.children }
+}
+```
+
+This ensures the frontend continues to work without changes while we use the new unified model internally.
+
+---
+
+## Database Migration Status
+
+Based on terminal history, the migration has been successfully applied:
+- ✅ `npx prisma migrate dev --name unified_note_model` (completed)
+- ✅ `npx prisma generate` (completed)
+- ✅ `npx prisma db seed` (completed)
+
+The database now has:
+- ✅ `Note` table with `type`, `parentId`, `likeCount`, `viewCount`, `acceptedAnswerId`, `deletedAt`
+- ✅ `NoteLike` table with unique constraint on `[noteId, userId]`
+- ✅ `NoteView` table with unique constraint on `[noteId, userId, dayBucket]`
+- ❌ `Question` table (removed)
+- ❌ `Answer` table (removed)
+
+---
+
+## Error Handling Improvements
+
+### New Error Types
+1. **INVALID_PARENT** (answers route)
+   - Returns 404 when parent question not found or invalid
+   - Prevents creating answers to non-existent questions
+
+2. **INVALID_ANSWER** (accept route)
+   - Returns 400 when answer is invalid or doesn't belong to question
+   - Prevents accepting wrong answers
+
+### Existing Error Types (Maintained)
+- `REPLAY_DETECTED` → 409 (replay protection)
+- `unauthorized` → 401 (no session)
+- `bad_request` → 400 (missing fields)
+- `verification_failed` → 400 (World ID verification failed)
+- `not_found` → 404 (resource not found)
+- `forbidden` → 403 (ownership check failed)
+- `server_error` → 500 (unexpected errors)
+
+---
+
+## Soft Delete Implementation
+
+All queries now filter out soft-deleted notes:
+```typescript
+where: {
+  deletedAt: null, // Exclude soft-deleted
+  // ... other conditions
+}
+```
+
+Benefits:
+- Referential integrity maintained
+- Can implement "undelete" functionality later
+- Accepted answers remain visible even if deleted (can be handled in UI)
+- Activity history preserved
+
+---
+
+## Performance Optimizations
+
+### Indexes Added
+```prisma
+@@index([categoryId, type, deletedAt])  // Category board queries
+@@index([parentId, deletedAt])          // Answer queries
+@@index([userId, type, deletedAt])      // My activity queries
+@@index([type, createdAt])              // General note queries
+@@index([noteId, userId])               // Like lookups
+@@index([noteId, dayBucket])            // View lookups
+@@index([action, signal])               // ActionProof lookups
+```
+
+These indexes optimize:
+- Category board loading (questions + answers)
+- My activity page (user's questions and answers)
+- Like/view count queries (future)
+- Replay detection (ActionProof lookups)
+
+---
+
+## Testing Checklist
+
+### Manual Testing (Required)
+- [ ] Category list loads with note counts
+- [ ] Category board shows questions and answers
+- [ ] Post new question works
+- [ ] Post new answer works
+- [ ] Accept answer works (owner only)
+- [ ] My Questions page shows user's questions
+- [ ] My Answers page shows user's answers
+- [ ] Soft-deleted notes are hidden
+- [ ] Error messages display correctly
+
+### API Testing (curl/Postman)
+```bash
+# Get categories
+GET /api/categories
+
+# Get questions for category
+GET /api/questions?categoryId=xxx
+
+# Get answers for question
+GET /api/answers?questionId=xxx
+
+# Get my questions
+GET /api/my/questions
+
+# Get my answers
+GET /api/my/answers
 ```
 
 ---
 
-## 🚀 READY FOR PHASE 3
+## Known Issues / Limitations
 
-Phase 2 is complete. The backend now has:
-- ✅ Verify gating on all actions
-- ✅ Anti-replay protection
-- ✅ Proper error handling
-- ✅ Security best practices
+1. **Frontend Not Updated Yet**
+   - Frontend still uses old TypeScript interfaces (Question, Answer)
+   - Frontend doesn't display likeCount or viewCount yet
+   - Frontend doesn't have edit/delete UI yet
+   - **Solution**: Phase 3+ will update frontend components
 
-**Next**: Phase 3 - Core CRUD + UI flows (categories, questions, answers, accept)
+2. **No Edit/Delete Endpoints Yet**
+   - PATCH `/api/notes/:id` not implemented
+   - DELETE `/api/notes/:id` not implemented
+   - **Solution**: Phase 3 will add these
+
+3. **No Like/View Endpoints Yet**
+   - POST `/api/notes/:id/like` not implemented
+   - POST `/api/notes/:id/view` not implemented
+   - **Solution**: Phase 4-5 will add these
+
+4. **Accepted Answer Deletion**
+   - If accepted answer is soft-deleted, `acceptedAnswerId` still points to it
+   - **Solution**: Handle in UI (show "deleted" state) or add cleanup logic
+
+---
+
+## Next Steps (Phase 3)
+
+1. **Create `/api/notes` CRUD endpoints**
+   - POST `/api/notes` (unified create for questions + answers)
+   - GET `/api/notes/:id` (single note detail)
+   - PATCH `/api/notes/:id` (edit note - owner only, no verify needed)
+   - DELETE `/api/notes/:id` (soft delete - owner only, no verify needed)
+
+2. **Update Accept Route** (if needed)
+   - Already updated in Phase 2 ✅
+
+3. **Add Validation**
+   - Prevent editing/deleting notes after certain time
+   - Prevent deleting question with accepted answer (or handle gracefully)
+
+4. **Documentation**
+   - Update API_ERROR_REFERENCE.md
+   - Update README.md with new endpoints
+
+---
+
+## Files Changed
+
+### Schema & Config
+- ✅ `prisma/schema.prisma` - New Note model + relations
+- ✅ `prisma/seed.ts` - Updated seed script
+- ✅ `src/lib/worldActions.ts` - New action getters
+
+### API Routes
+- ✅ `src/app/api/categories/route.ts` - Use notes count
+- ✅ `src/app/api/questions/route.ts` - Query/create Note (type=QUESTION)
+- ✅ `src/app/api/answers/route.ts` - Query/create Note (type=ANSWER)
+- ✅ `src/app/api/accept/route.ts` - Update acceptedAnswerId
+- ✅ `src/app/api/my/questions/route.ts` - Query user's questions
+- ✅ `src/app/api/my/answers/route.ts` - Query user's answers
+
+### Documentation
+- ✅ `PHASE1_AUDIT_REPORT.md` - Audit results
+- ✅ `PHASE2_SCHEMA_MIGRATION.md` - Migration guide
+- ✅ `PHASE2_COMPLETION.md` - This file
+
+---
+
+## Migration Commands (For Reference)
+
+```bash
+# 1. Create and apply migration
+npx prisma migrate dev --name unified_note_model
+
+# 2. Generate Prisma client
+npx prisma generate
+
+# 3. Seed database
+npx prisma db seed
+
+# 4. Verify in Prisma Studio
+npx prisma studio
+
+# 5. Restart dev server
+pnpm dev
+```
+
+---
+
+## PHASE 2 COMPLETE ✅
+
+The schema refactor is complete and all API routes have been updated to use the unified Note model while maintaining backward compatibility.
+
+**Ready for Phase 3**: Implement like toggle, view recording, and edit/delete functionality.

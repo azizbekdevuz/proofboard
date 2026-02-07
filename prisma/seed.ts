@@ -29,7 +29,49 @@ async function main() {
     }
   }
 
-  console.log('✨ Seeding completed!');
+  console.log('✅ Seeded categories');
+
+  // Optional: Seed sample notes for testing
+  const techCategory = await prisma.category.findUnique({
+    where: { name: 'Technology' },
+  });
+
+  if (techCategory) {
+    // Create a test user
+    const testUser = await prisma.user.upsert({
+      where: { wallet: '0x0000000000000000000000000000000000000000' },
+      update: {},
+      create: {
+        wallet: '0x0000000000000000000000000000000000000000',
+        username: 'Test User',
+      },
+    });
+
+    // Create a sample question
+    const question = await prisma.note.create({
+      data: {
+        type: 'QUESTION',
+        categoryId: techCategory.id,
+        userId: testUser.id,
+        text: 'What is the best way to learn Web3 development?',
+      },
+    });
+
+    // Create a sample answer
+    await prisma.note.create({
+      data: {
+        type: 'ANSWER',
+        parentId: question.id,
+        categoryId: techCategory.id,
+        userId: testUser.id,
+        text: 'Start with Solidity tutorials and build small projects. Practice is key!',
+      },
+    });
+
+    console.log('✅ Seeded sample notes (1 question, 1 answer)');
+  }
+
+  console.log('🎉 Seeding complete!');
 }
 
 main()

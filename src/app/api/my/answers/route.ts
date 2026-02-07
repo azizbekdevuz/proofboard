@@ -23,24 +23,40 @@ export async function GET(req: NextRequest) {
     return NextResponse.json([]);
   }
 
-  // Fetch user's answers with question and category info
-  const answers = await db.answer.findMany({
-    where: { userId: user.id },
+  // Fetch user's answers (notes of type ANSWER)
+  const answers = await db.note.findMany({
+    where: { 
+      userId: user.id,
+      type: 'ANSWER',
+      deletedAt: null, // Exclude soft-deleted notes
+    },
     include: {
-      question: {
-        include: {
-          category: { select: { id: true, name: true } },
-        },
+      parent: {
         select: {
           id: true,
           text: true,
-          acceptedId: true,
-          category: true,
+          acceptedAnswerId: true,
+          category: { select: { id: true, name: true } },
         },
       },
     },
     orderBy: { createdAt: "desc" },
   });
 
-  return NextResponse.json(answers);
+  // Transform to match old API shape for backward compatibility
+  const transformed = answers.map(answer => ({
+    id: answer.id,
+    questionId: answer.parentId,
+    userId: answer.userId,
+    text: answer.text,
+    createdAt: answer.createdAt,
+    question: answer.parent ? {
+      id: answer.parent.id,
+      text: answer.parent.text,
+      acceptedId: answer.parent.acceptedAnswerId,
+      category: answer.parent.category,
+    } : null,
+  }));
+
+  return NextResponse.json(transformed);
 }

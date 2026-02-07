@@ -1,10 +1,12 @@
 'use client';
 
 import { Button } from '@worldcoin/mini-apps-ui-kit-react';
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { ComposeAnswer } from '@/components/ComposeAnswer';
+import { LikeButton } from '@/components/LikeButton';
 import { useSession } from 'next-auth/react';
 import { getWorldIDProof } from '@/components/verify';
+import { getActionViewNote } from '@/lib/worldActions';
 
 interface Question {
   id: string;
@@ -39,8 +41,53 @@ interface QuestionCardProps {
  */
 export const QuestionCard = ({ question, onAnswerPosted }: QuestionCardProps) => {
   const [showCompose, setShowCompose] = useState(false);
+  const [viewCount, setViewCount] = useState(0);
+  const [hasRecordedView, setHasRecordedView] = useState(false);
   const { data: session } = useSession();
   const isOwner = session?.user?.walletAddress === question.user.wallet;
+
+  // Record view on mount (once per component lifecycle)
+  useEffect(() => {
+    if (hasRecordedView || !session?.user?.walletAddress) return;
+
+    const recordView = async () => {
+      try {
+        const actionId = getActionViewNote();
+        const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+        const signal = `${question.id}:${today}`;
+        
+        console.log('Recording view:', { questionId: question.id, signal });
+        
+        // Get World ID proof
+        const proof = await getWorldIDProof(actionId, signal);
+        
+        // Send to backend
+        const response = await fetch(`/api/notes/${question.id}/view`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ proof, signal }),
+        });
+
+        const data = await response.json();
+        if (response.ok) {
+          setViewCount(data.viewCount);
+          setHasRecordedView(true);
+          console.log('View recorded:', data);
+        } else {
+          // If already viewed today, that's fine
+          if (data.message?.includes('Already viewed')) {
+            setHasRecordedView(true);
+          }
+          console.log('View recording response:', data);
+        }
+      } catch (error) {
+        console.error('Failed to record view:', error);
+        // Don't block UI if view recording fails
+      }
+    };
+
+    recordView();
+  }, [question.id, session, hasRecordedView]);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -72,6 +119,21 @@ export const QuestionCard = ({ question, onAnswerPosted }: QuestionCardProps) =>
               <span>{formatDate(question.createdAt)}</span>
             </div>
           </div>
+        </div>
+        
+        {/* Engagement Stats */}
+        <div className="flex items-center gap-4 mt-3">
+          <LikeButton 
+            noteId={question.id}
+            initialLiked={false}
+            initialCount={0}
+          />
+          {viewCount > 0 && (
+            <div className="flex items-center gap-1 text-sm text-gray-600">
+              <span>👁️</span>
+              <span>{viewCount}</span>
+            </div>
+          )}
         </div>
       </div>
 

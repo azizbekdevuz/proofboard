@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 export async function GET() {
   const categories = await db.category.findMany({
     include: {
-      _count: { select: { questions: true } },
+      _count: { select: { notes: true } },
     },
     orderBy: { name: "asc" },
   });

@@ -36,6 +36,8 @@
    NEXT_PUBLIC_ACTION_POST_QUESTION=proofboard_post_question
    NEXT_PUBLIC_ACTION_POST_ANSWER=proofboard_post_answer
    NEXT_PUBLIC_ACTION_ACCEPT_ANSWER=proofboard_accept_answer
+   NEXT_PUBLIC_ACTION_LIKE_NOTE=proofboard_like_note
+   NEXT_PUBLIC_ACTION_VIEW_NOTE=proofboard_view_note
    
    # Database
    DATABASE_URL="file:./dev.db"                # SQLite for local dev
@@ -52,12 +54,14 @@
 3. **Create Incognito Actions in Developer Portal:**
    - Go to [developer.worldcoin.org](https://developer.worldcoin.org)
    - Navigate to your app → Incognito Actions
-   - Create three actions with **INCREASED LIMITS** for demo:
+   - Create five actions with **INCREASED LIMITS** for demo:
      - `proofboard_post_question` - **Recommended: 10 per day** (not 1 per user!)
      - `proofboard_post_answer` - **Recommended: 20 per day**
      - `proofboard_accept_answer` - **Recommended: 10 per day**
+     - `proofboard_like_note` - **Recommended: 50 per day** (generous for engagement)
+     - `proofboard_view_note` - **Recommended: 100 per day** (users browse many notes)
    
-   ⚠️ **IMPORTANT**: The default "1 per user" limit is too restrictive for a Q&A system. Users need to post multiple questions/answers. Set limits to at least 10 per day for testing and demos.
+   ⚠️ **IMPORTANT**: The default "1 per user" limit is too restrictive for a Q&A system. Users need to post multiple questions/answers and engage with many notes. Set limits generously for testing and demos.
 
 4. **Set up database:**
    ```bash
@@ -89,6 +93,8 @@
 | `NEXT_PUBLIC_ACTION_POST_QUESTION` | Incognito Action ID for posting questions | ✅ |
 | `NEXT_PUBLIC_ACTION_POST_ANSWER` | Incognito Action ID for posting answers | ✅ |
 | `NEXT_PUBLIC_ACTION_ACCEPT_ANSWER` | Incognito Action ID for accepting answers | ✅ |
+| `NEXT_PUBLIC_ACTION_LIKE_NOTE` | Incognito Action ID for liking notes | ✅ |
+| `NEXT_PUBLIC_ACTION_VIEW_NOTE` | Incognito Action ID for recording views | ✅ |
 | `DATABASE_URL` | Database connection string | ✅ |
 | `NEXTAUTH_SECRET` | Secret for NextAuth sessions | ✅ |
 | `NEXTAUTH_URL` | Base URL of your app | ✅ |
@@ -174,6 +180,79 @@ This starter kit uses [Mini Apps UI Kit](https://github.com/worldcoin/mini-apps-
 ## Eruda
 
 [Eruda](https://github.com/liriliri/eruda) is a tool that allows you to inspect the console while building as a mini app. You should disable this in production.
+
+## API Endpoints
+
+### Core CRUD
+
+#### POST /api/questions
+Create a new question (requires World ID verification)
+- **Body**: `{ categoryId, text, proof, signal }`
+- **Signal**: `${categoryId}:${YYYY-MM-DD}`
+- **Returns**: Created question with user info
+
+#### POST /api/answers
+Create a new answer (requires World ID verification)
+- **Body**: `{ questionId, text, proof, signal }`
+- **Signal**: `${questionId}:${YYYY-MM-DD}`
+- **Returns**: Created answer with user info
+
+#### POST /api/accept
+Accept an answer (requires World ID verification, owner only)
+- **Body**: `{ questionId, answerId, proof, signal }`
+- **Signal**: `${questionId}`
+- **Returns**: Updated question with accepted answer
+
+### Engagement
+
+#### POST /api/notes/:id/like
+Toggle like on a note (question or answer)
+- **Body**: `{ proof, signal }` (only for first-time like)
+- **Signal**: `${noteId}`
+- **Returns**: `{ liked: boolean, likeCount: number }`
+- **Strategy**: Verify only on like, no verify on unlike (reduces abuse)
+
+#### POST /api/notes/:id/view
+Record a view on a note (one per human per day)
+- **Body**: `{ proof, signal }`
+- **Signal**: `${noteId}:${YYYY-MM-DD}`
+- **Returns**: `{ viewed: true, viewCount: number }`
+- **Anti-spam**: Day bucket prevents refresh spam
+
+### Note Management
+
+#### GET /api/notes/:id
+Get a single note with all related data
+- **Returns**: Note with user, category, parent, children, counts
+
+#### PATCH /api/notes/:id
+Edit a note (owner only, no World ID needed)
+- **Body**: `{ text }`
+- **Returns**: Updated note
+- **Restrictions**: Text only, max 300 chars
+
+#### DELETE /api/notes/:id
+Soft delete a note (owner only, no World ID needed)
+- **Returns**: `{ success: true, deletedAt }`
+- **Behavior**: Sets deletedAt, clears acceptedAnswerId if applicable
+
+### User Activity
+
+#### GET /api/my/questions
+Get authenticated user's questions
+- **Returns**: Array of questions with category and answer count
+
+#### GET /api/my/answers
+Get authenticated user's answers
+- **Returns**: Array of answers with question context
+
+### Categories
+
+#### GET /api/categories
+Get all categories with note counts
+- **Returns**: Array of categories with `_count.notes`
+
+---
 
 ## Contributing
 

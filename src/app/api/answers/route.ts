@@ -11,15 +11,29 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "questionId required" }, { status: 400 });
   }
 
-  const answers = await db.answer.findMany({
-    where: { questionId },
+  const answers = await db.note.findMany({
+    where: { 
+      parentId: questionId,
+      type: 'ANSWER',
+      deletedAt: null, // Exclude soft-deleted answers
+    },
     include: {
       user: { select: { username: true, wallet: true } },
     },
     orderBy: { createdAt: "asc" },
   });
 
-  return NextResponse.json(answers);
+  // Transform to match old API shape for backward compatibility
+  const transformed = answers.map(a => ({
+    id: a.id,
+    questionId: a.parentId,
+    userId: a.userId,
+    text: a.text,
+    createdAt: a.createdAt,
+    user: a.user,
+  }));
+
+  return NextResponse.json(transformed);
 }
 
 export async function POST(req: NextRequest) {
@@ -173,15 +187,39 @@ export async function POST(req: NextRequest) {
         create: { wallet, username },
       });
 
-      // 3. Create answer
-      const answer = await tx.answer.create({
-        data: { userId: user.id, questionId, text },
+      // 3. Get parent question to get categoryId
+      const parentQuestion = await tx.note.findUnique({
+        where: { id: questionId },
+        select: { categoryId: true, type: true },
+      });
+
+      if (!parentQuestion || parentQuestion.type !== 'QUESTION') {
+        throw new Error('INVALID_PARENT');
+      }
+
+      // 4. Create answer (as Note with type=ANSWER)
+      const answer = await tx.note.create({
+        data: { 
+          type: 'ANSWER',
+          parentId: questionId,
+          categoryId: parentQuestion.categoryId,
+          userId: user.id, 
+          text,
+        },
         include: {
           user: { select: { username: true, wallet: true } },
         },
       });
 
-      return answer;
+      // Transform to match old API shape for backward compatibility
+      return {
+        id: answer.id,
+        questionId: answer.parentId,
+        userId: answer.userId,
+        text: answer.text,
+        createdAt: answer.createdAt,
+        user: answer.user,
+      };
     });
 
     console.log('Answer created successfully:', result.id);
@@ -196,6 +234,13 @@ export async function POST(req: NextRequest) {
         action,
         signal,
       }, { status: 409 });
+    }
+
+    if (error.message === 'INVALID_PARENT') {
+      return NextResponse.json({
+        error: "not_found",
+        message: "Question not found or invalid",
+      }, { status: 404 });
     }
 
     console.error('Transaction failed:', error);

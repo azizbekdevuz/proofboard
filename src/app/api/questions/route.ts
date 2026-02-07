@@ -11,20 +11,45 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "categoryId required" }, { status: 400 });
   }
 
-  const questions = await db.question.findMany({
-    where: { categoryId },
+  const questions = await db.note.findMany({
+    where: { 
+      categoryId,
+      type: 'QUESTION',
+      deletedAt: null, // Exclude soft-deleted notes
+    },
     include: {
       user: { select: { username: true, wallet: true } },
-      answers: {
-        include: { user: { select: { username: true } } },
+      children: {
+        where: { deletedAt: null }, // Exclude soft-deleted answers
+        include: { user: { select: { username: true, wallet: true } } },
         orderBy: { createdAt: "asc" },
       },
-      _count: { select: { answers: true } },
+      _count: { select: { children: true } },
     },
     orderBy: { createdAt: "desc" },
   });
 
-  return NextResponse.json(questions);
+  // Transform to match old API shape for backward compatibility
+  const transformed = questions.map(q => ({
+    id: q.id,
+    categoryId: q.categoryId,
+    userId: q.userId,
+    text: q.text,
+    createdAt: q.createdAt,
+    acceptedId: q.acceptedAnswerId,
+    user: q.user,
+    answers: q.children.map(child => ({
+      id: child.id,
+      questionId: q.id,
+      userId: child.userId,
+      text: child.text,
+      createdAt: child.createdAt,
+      user: child.user,
+    })),
+    _count: { answers: q._count.children },
+  }));
+
+  return NextResponse.json(transformed);
 }
 
 export async function POST(req: NextRequest) {
@@ -183,15 +208,31 @@ export async function POST(req: NextRequest) {
         create: { wallet, username },
       });
 
-      // 3. Create question
-      const question = await tx.question.create({
-        data: { userId: user.id, categoryId, text },
+      // 3. Create question (as Note with type=QUESTION)
+      const question = await tx.note.create({
+        data: { 
+          type: 'QUESTION',
+          userId: user.id, 
+          categoryId, 
+          text,
+        },
         include: {
           user: { select: { username: true, wallet: true } },
         },
       });
 
-      return question;
+      // Transform to match old API shape for backward compatibility
+      return {
+        id: question.id,
+        categoryId: question.categoryId,
+        userId: question.userId,
+        text: question.text,
+        createdAt: question.createdAt,
+        acceptedId: question.acceptedAnswerId,
+        user: question.user,
+        answers: [],
+        _count: { answers: 0 },
+      };
     });
 
     console.log(`[${requestId}] Question created successfully:`, result.id);

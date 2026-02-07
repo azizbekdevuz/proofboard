@@ -7,43 +7,101 @@ generator client {
   provider = "prisma-client-js"
 }
 
+// ============================================================================
+// CORE MODELS
+// ============================================================================
+
 model User {
-  id        String   @id @default(cuid())
-  wallet    String   @unique
+  id        String     @id @default(cuid())
+  wallet    String     @unique
   username  String?
-  createdAt DateTime @default(now())
-  questions Question[]
-  answers   Answer[]
+  createdAt DateTime   @default(now())
+  notes     Note[]
+  likes     NoteLike[]
+  views     NoteView[]
 }
 
 model Category {
   id        String   @id @default(cuid())
   name      String   @unique
   createdAt DateTime @default(now())
-  questions Question[]
+  notes     Note[]
 }
 
-model Question {
-  id          String   @id @default(cuid())
-  categoryId  String
-  userId      String
-  text        String   // <= 300 chars enforced in app + server
-  createdAt   DateTime @default(now())
-  acceptedId  String?  // Answer.id
-  category    Category @relation(fields: [categoryId], references: [id])
-  user        User     @relation(fields: [userId], references: [id])
-  answers     Answer[]
+// ============================================================================
+// UNIFIED NOTE MODEL (replaces Question + Answer)
+// ============================================================================
+
+model Note {
+  id               String    @id @default(cuid())
+  type             NoteType  // QUESTION or ANSWER
+  parentId         String?   // For ANSWER: points to parent QUESTION note
+  categoryId       String    // Required for QUESTION; for ANSWER derived from parent
+  userId           String
+  text             String    // <= 300 chars enforced in app + server
+  likeCount        Int       @default(0)
+  viewCount        Int       @default(0)
+  acceptedAnswerId String?   // For QUESTION: points to accepted ANSWER note
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  deletedAt        DateTime? // Soft delete
+  
+  // Relations
+  category         Category  @relation(fields: [categoryId], references: [id])
+  user             User      @relation(fields: [userId], references: [id])
+  parent           Note?     @relation("NoteToNote", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  children         Note[]    @relation("NoteToNote")
+  likes            NoteLike[]
+  views            NoteView[]
+  
+  // Indexes for performance
+  @@index([categoryId, type, deletedAt])
+  @@index([parentId, deletedAt])
+  @@index([userId, type, deletedAt])
+  @@index([type, createdAt])
 }
 
-model Answer {
-  id         String   @id @default(cuid())
-  questionId String
-  userId     String
-  text       String   // <= 300 chars enforced in app + server
-  createdAt  DateTime @default(now())
-  question   Question @relation(fields: [questionId], references: [id])
-  user       User     @relation(fields: [userId], references: [id])
+enum NoteType {
+  QUESTION
+  ANSWER
 }
+
+// ============================================================================
+// ENGAGEMENT MODELS
+// ============================================================================
+
+model NoteLike {
+  id        String   @id @default(cuid())
+  noteId    String
+  userId    String
+  createdAt DateTime @default(now())
+  
+  note      Note     @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id])
+  
+  @@unique([noteId, userId])
+  @@index([userId])
+  @@index([noteId])
+}
+
+model NoteView {
+  id        String   @id @default(cuid())
+  noteId    String
+  userId    String
+  dayBucket String   // YYYY-MM-DD format for daily uniqueness
+  createdAt DateTime @default(now())
+  
+  note      Note     @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id])
+  
+  @@unique([noteId, userId, dayBucket])
+  @@index([userId])
+  @@index([noteId, dayBucket])
+}
+
+// ============================================================================
+// ANTI-ABUSE MODEL
+// ============================================================================
 
 model ActionProof {
   id        String   @id @default(cuid())
@@ -53,4 +111,5 @@ model ActionProof {
   createdAt DateTime @default(now())
 
   @@unique([action, nullifier, signal])
+  @@index([action, signal])
 }

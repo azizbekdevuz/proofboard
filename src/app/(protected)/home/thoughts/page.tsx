@@ -1,6 +1,5 @@
 import { auth } from '@/auth';
-import { Page } from '@/components/PageLayout';
-import { TopBar } from '@worldcoin/mini-apps-ui-kit-react';
+import { AppShell } from '@/components/AppShell';
 import { CategoriesList } from '@/components/CategoriesList';
 
 /**
@@ -11,22 +10,22 @@ export default async function ThoughtsPage() {
   const session = await auth();
 
   return (
-    <>
-      <Page.Header className="p-0">
-        <TopBar
-          title="Thoughts"
-          endAdornment={
-            session?.user?.username && (
-              <p className="text-sm font-semibold capitalize">
-                {session.user.username}
-              </p>
-            )
-          }
-        />
-      </Page.Header>
-      <Page.Main className="p-4">
+    <AppShell
+      showBottomNav={true}
+      showTopHeader={true}
+      showBackButton={false}
+      title="Thoughts"
+      headerActions={
+        session?.user?.username && (
+          <p className="text-sm font-semibold capitalize text-gray-700">
+            {session.user.username}
+          </p>
+        )
+      }
+    >
+      <div className="p-4">
         <CategoriesList />
-      </Page.Main>
-    </>
+      </div>
+    </AppShell>
   );
 }
