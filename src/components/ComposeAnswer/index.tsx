@@ -121,34 +121,44 @@ export const ComposeAnswer = ({
   const remainingChars = 300 - text.length;
 
   return (
-    <div className="flex flex-col gap-3 p-3 border-2 border-blue-200 rounded-lg bg-blue-50">
-      <textarea
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        placeholder="Write your answer... (max 300 characters)"
-        maxLength={300}
-        rows={3}
-        className="w-full p-2 border-2 border-blue-300 rounded-lg resize-none focus:outline-none focus:border-blue-500"
-      />
-
-      <div className="flex items-center justify-between text-xs">
-        <span className={remainingChars < 20 ? 'text-red-500' : 'text-gray-500'}>
-          {remainingChars} remaining
-        </span>
+    <div className="flex flex-col gap-4 p-5 border border-indigo-200 rounded-2xl bg-gradient-to-br from-indigo-50 to-white shadow-sm">
+      <div className="relative">
+        <textarea
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder="Share your answer..."
+          maxLength={300}
+          rows={4}
+          className="w-full p-4 border-2 border-indigo-100 rounded-xl resize-none focus:outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50 transition-all text-sm placeholder:text-gray-400 bg-white"
+        />
+        <div className="absolute bottom-3 right-3">
+          <span className={`text-xs font-medium px-2 py-1 rounded-full ${
+            remainingChars < 20 
+              ? 'bg-red-100 text-red-700' 
+              : 'bg-gray-100 text-gray-600'
+          }`}>
+            {remainingChars}
+          </span>
+        </div>
       </div>
 
-      {error && <p className="text-xs text-red-500">{error}</p>}
+      {error && (
+        <div className="flex items-start gap-2 p-3 bg-red-50 rounded-xl border border-red-100">
+          <svg className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <p className="text-xs text-red-900">{error}</p>
+        </div>
+      )}
 
-      <div className="flex gap-2">
-        <Button
-          variant="secondary"
-          size="sm"
+      <div className="flex gap-2.5">
+        <button
           onClick={onCancel}
           disabled={isSubmitting}
-          className="flex-1"
+          className="flex-1 bg-white hover:bg-gray-50 text-gray-900 font-semibold py-2.5 px-4 rounded-xl border border-gray-200 active:scale-[0.98] transition-all disabled:opacity-50 text-sm"
         >
           Cancel
-        </Button>
+        </button>
         <LiveFeedback
           label={{
             pending: 'Verifying...',
@@ -156,16 +166,25 @@ export const ComposeAnswer = ({
             success: 'Posted!',
           }}
           state={isSubmitting ? 'pending' : undefined}
+          className="flex-1"
         >
-          <Button
-            variant="primary"
-            size="sm"
+          <button
             onClick={handleSubmit}
             disabled={isSubmitting || !text.trim()}
-            className="flex-1"
+            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 px-4 rounded-xl shadow-sm hover:shadow-md active:scale-[0.98] transition-all disabled:opacity-50 text-sm flex items-center justify-center gap-2"
           >
-            Post Answer
-          </Button>
+            {isSubmitting ? (
+              <>
+                <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+                Verifying...
+              </>
+            ) : (
+              'Post Answer'
+            )}
+          </button>
         </LiveFeedback>
       </div>
     </div>

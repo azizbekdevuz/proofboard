@@ -59,16 +59,16 @@ export function AppShell({
       {/* Top Header (Optional) */}
       {showTopHeader && (
         <header 
-          className="sticky top-0 z-40 bg-white border-b border-gray-200"
+          className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-gray-200 shadow-sm"
           style={{ paddingTop: 'env(safe-area-inset-top)' }}
         >
-          <div className="flex items-center justify-between h-14 px-4">
+          <div className="flex items-center justify-between h-16 px-5">
             {/* Left: Back Button */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 min-w-[44px]">
               {showBackButton && (
                 <button
                   onClick={handleBack}
-                  className="flex items-center justify-center w-10 h-10 rounded-lg hover:bg-gray-100 active:bg-gray-200 transition-colors"
+                  className="flex items-center justify-center w-11 h-11 rounded-xl hover:bg-gray-100 active:bg-gray-200 transition-all active:scale-95"
                   aria-label="Go back"
                 >
                   <svg
@@ -76,11 +76,11 @@ export function AppShell({
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
+                    strokeWidth={2.5}
                   >
                     <path
                       strokeLinecap="round"
                       strokeLinejoin="round"
-                      strokeWidth={2}
                       d="M15 19l-7-7 7-7"
                     />
                   </svg>
@@ -90,18 +90,18 @@ export function AppShell({
 
             {/* Center: Title */}
             <div className="flex-1 text-center px-4">
-              <h1 className="text-lg font-semibold text-gray-900 truncate">
+              <h1 className="text-lg font-bold text-gray-900 truncate tracking-tight">
                 {title || 'ProofBoard'}
               </h1>
             </div>
 
             {/* Right: Actions */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 min-w-[44px] justify-end">
               {headerActions}
               {showBackButton && (
                 <button
                   onClick={handleHome}
-                  className="flex items-center justify-center w-10 h-10 rounded-lg hover:bg-gray-100 active:bg-gray-200 transition-colors"
+                  className="flex items-center justify-center w-11 h-11 rounded-xl hover:bg-gray-100 active:bg-gray-200 transition-all active:scale-95"
                   aria-label="Go to home"
                 >
                   <svg
@@ -109,11 +109,11 @@ export function AppShell({
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
+                    strokeWidth={2.5}
                   >
                     <path
                       strokeLinecap="round"
                       strokeLinejoin="round"
-                      strokeWidth={2}
                       d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
                     />
                   </svg>
@@ -139,64 +139,70 @@ export function AppShell({
       {/* Bottom Navigation (Optional) */}
       {showBottomNav && (
         <nav 
-          className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200 shadow-lg"
+          className="fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-t border-gray-200 shadow-2xl"
           style={{
             paddingBottom: 'max(env(safe-area-inset-bottom), 8px)',
           }}
         >
-          <div className="flex items-center justify-around h-16">
+          <div className="flex items-center justify-around h-20 px-4">
             {/* Home Tab */}
             <button
               onClick={handleHome}
-              className={`flex flex-col items-center justify-center flex-1 h-full transition-colors ${
+              className={`flex flex-col items-center justify-center flex-1 h-full transition-all relative ${
                 isHomeActive
-                  ? 'text-blue-600'
-                  : 'text-gray-600 hover:text-gray-900'
+                  ? 'text-indigo-600'
+                  : 'text-gray-500 hover:text-gray-700 active:scale-95'
               }`}
               aria-label="Home"
               aria-current={isHomeActive ? 'page' : undefined}
             >
+              {isHomeActive && (
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-12 h-1 bg-indigo-600 rounded-full" />
+              )}
               <svg
-                className="w-6 h-6 mb-1"
+                className="w-7 h-7 mb-1.5"
                 fill={isHomeActive ? 'currentColor' : 'none'}
                 stroke="currentColor"
                 viewBox="0 0 24 24"
+                strokeWidth={isHomeActive ? 0 : 2}
               >
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  strokeWidth={2}
                   d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
                 />
               </svg>
-              <span className="text-xs font-medium">Home</span>
+              <span className={`text-xs ${isHomeActive ? 'font-semibold' : 'font-medium'}`}>Home</span>
             </button>
 
             {/* My Tab */}
             <button
               onClick={handleMy}
-              className={`flex flex-col items-center justify-center flex-1 h-full transition-colors ${
+              className={`flex flex-col items-center justify-center flex-1 h-full transition-all relative ${
                 isMyActive
-                  ? 'text-blue-600'
-                  : 'text-gray-600 hover:text-gray-900'
+                  ? 'text-indigo-600'
+                  : 'text-gray-500 hover:text-gray-700 active:scale-95'
               }`}
               aria-label="My Activity"
               aria-current={isMyActive ? 'page' : undefined}
             >
+              {isMyActive && (
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-12 h-1 bg-indigo-600 rounded-full" />
+              )}
               <svg
-                className="w-6 h-6 mb-1"
+                className="w-7 h-7 mb-1.5"
                 fill={isMyActive ? 'currentColor' : 'none'}
                 stroke="currentColor"
                 viewBox="0 0 24 24"
+                strokeWidth={isMyActive ? 0 : 2}
               >
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  strokeWidth={2}
                   d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
                 />
               </svg>
-              <span className="text-xs font-medium">My</span>
+              <span className={`text-xs ${isMyActive ? 'font-semibold' : 'font-medium'}`}>My</span>
             </button>
           </div>
         </nav>

@@ -1,5 +1,6 @@
 import { Page } from '@/components/PageLayout';
 import { AuthButton } from '../components/AuthButton';
+import Link from 'next/link';
 
 export default function Home() {
   return (
@@ -19,46 +20,55 @@ export default function Home() {
         </div>
 
         {/* Auth Button */}
-        <div className="w-full max-w-sm mb-8">
+        <div className="w-full max-w-sm mb-4">
           <AuthButton />
         </div>
 
-        {/* Why World ID Section */}
-        <div className="w-full max-w-md space-y-4 mt-4">
-          <div className="flex items-start gap-3 p-4 bg-blue-50 rounded-lg">
-            <span className="text-2xl">🔐</span>
+        {/* Demo Mode Link */}
+        <div className="w-full max-w-sm mb-8">
+          <Link 
+            href="/home/thoughts"
+            className="block w-full text-center py-3 px-4 text-sm font-medium text-gray-700 hover:text-gray-900 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors"
+          >
+            Browse Demo (Read-Only)
+          </Link>
+          <p className="text-xs text-gray-500 text-center mt-2">
+            View questions without signing in. Posting requires World App.
+          </p>
+        </div>
+
+        {/* Why World ID is Essential */}
+        <div className="w-full max-w-md space-y-3 mt-4">
+          <h2 className="text-base font-bold text-gray-900 mb-2">Why World ID?</h2>
+          
+          <div className="flex items-start gap-3 p-3 bg-red-50 border border-red-100 rounded-lg">
+            <span className="text-xl">❌</span>
             <div className="flex-1">
               <h3 className="font-semibold text-sm text-gray-900 mb-1">
-                Human-Only Verification
+                Without Proof of Personhood
               </h3>
-              <p className="text-sm text-gray-600 leading-relaxed">
-                World ID ensures every post comes from a real, unique human—no bots, no spam, no fake accounts.
+              <p className="text-xs text-gray-700 leading-relaxed">
+                One person creates 100 accounts → floods boards with spam → manipulates votes → drowns out real voices.
               </p>
             </div>
           </div>
 
-          <div className="flex items-start gap-3 p-4 bg-green-50 rounded-lg">
-            <span className="text-2xl">🛡️</span>
+          <div className="flex items-start gap-3 p-3 bg-green-50 border border-green-100 rounded-lg">
+            <span className="text-xl">✅</span>
             <div className="flex-1">
               <h3 className="font-semibold text-sm text-gray-900 mb-1">
-                Privacy-First Design
+                With World ID Verify
               </h3>
-              <p className="text-sm text-gray-600 leading-relaxed">
-                We only store your wallet address. No email, no phone, no personal data. Your identity stays private.
+              <p className="text-xs text-gray-700 leading-relaxed">
+                One human = one voice per action → significantly reduces Sybil attacks → fair participation for everyone.
               </p>
             </div>
           </div>
 
-          <div className="flex items-start gap-3 p-4 bg-purple-50 rounded-lg">
-            <span className="text-2xl">✓</span>
-            <div className="flex-1">
-              <h3 className="font-semibold text-sm text-gray-900 mb-1">
-                Fair Participation
-              </h3>
-              <p className="text-sm text-gray-600 leading-relaxed">
-                One human, one voice. World ID prevents multi-account abuse and ensures everyone has an equal say.
-              </p>
-            </div>
+          <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg">
+            <p className="text-xs text-gray-600 leading-relaxed">
+              <span className="font-semibold text-gray-900">Privacy-first:</span> We only store your wallet address. No email, no phone, no personal data. World ID proves you're human without revealing who you are.
+            </p>
           </div>
         </div>
 

@@ -128,43 +128,56 @@ export const ComposeQuestion = ({
   const remainingChars = 300 - text.length;
 
   return (
-    <div className="flex flex-col gap-4 p-4 border-2 border-gray-200 rounded-xl bg-white">
+    <div className="flex flex-col gap-5 p-6 border border-gray-200 rounded-3xl bg-white shadow-lg">
       <div>
-        <h3 className="text-lg font-semibold mb-2">Post a Question</h3>
-        <p className="text-sm text-gray-600 mb-3">
-          Your question will be verified with World ID to prevent spam.
-        </p>
+        <h3 className="text-xl font-bold text-gray-900 mb-2">Post a Question</h3>
+        <div className="flex items-start gap-2 p-3 bg-indigo-50 rounded-xl border border-indigo-100">
+          <svg className="w-5 h-5 text-indigo-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+          </svg>
+          <p className="text-sm text-indigo-900 leading-relaxed">
+            <span className="font-semibold">Human-verified only.</span> Your question will be verified with World ID.
+          </p>
+        </div>
       </div>
 
-      <textarea
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        placeholder="What's on your mind? (max 300 characters)"
-        maxLength={300}
-        rows={4}
-        className="w-full p-3 border-2 border-gray-300 rounded-lg resize-none focus:outline-none focus:border-blue-500"
-      />
-
-      <div className="flex items-center justify-between text-sm">
-        <span className={remainingChars < 20 ? 'text-red-500' : 'text-gray-500'}>
-          {remainingChars} characters remaining
-        </span>
+      <div className="relative">
+        <textarea
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder="What's on your mind?"
+          maxLength={300}
+          rows={5}
+          className="w-full p-4 border-2 border-gray-200 rounded-2xl resize-none focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50 transition-all text-base placeholder:text-gray-400"
+        />
+        <div className="absolute bottom-3 right-3">
+          <span className={`text-xs font-medium px-2 py-1 rounded-full ${
+            remainingChars < 20 
+              ? 'bg-red-100 text-red-700' 
+              : 'bg-gray-100 text-gray-600'
+          }`}>
+            {remainingChars} left
+          </span>
+        </div>
       </div>
 
       {error && (
-        <p className="text-sm text-red-500">{error}</p>
+        <div className="flex items-start gap-2 p-3 bg-red-50 rounded-xl border border-red-100">
+          <svg className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <p className="text-sm text-red-900">{error}</p>
+        </div>
       )}
 
-      <div className="flex gap-2">
-        <Button
-          variant="secondary"
-          size="lg"
+      <div className="flex gap-3">
+        <button
           onClick={onCancel}
           disabled={isSubmitting}
-          className="flex-1"
+          className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-900 font-semibold py-3.5 px-6 rounded-xl active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Cancel
-        </Button>
+        </button>
         <LiveFeedback
           label={{
             pending: 'Verifying...',
@@ -172,16 +185,25 @@ export const ComposeQuestion = ({
             success: 'Posted!',
           }}
           state={isSubmitting ? 'pending' : undefined}
+          className="flex-1"
         >
-          <Button
-            variant="primary"
-            size="lg"
+          <button
             onClick={handleSubmit}
             disabled={isSubmitting || !text.trim()}
-            className="flex-1"
+            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3.5 px-6 rounded-xl shadow-md hover:shadow-lg active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
-            Post Question
-          </Button>
+            {isSubmitting ? (
+              <>
+                <svg className="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+                Verifying...
+              </>
+            ) : (
+              'Post Question'
+            )}
+          </button>
         </LiveFeedback>
       </div>
     </div>

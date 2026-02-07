@@ -1,259 +1,293 @@
-# ProofBoard - World Mini App
+# ProofBoard - Human-Only Q&A
 
-**ProofBoard** is a human-only sticky-note Q&A system built for World App. Users post questions as sticky notes on category boards, others attach answers, and the questioner accepts one answer. Every important action is gated by World ID Verify (Incognito Actions) to prevent bots, LLM spam, and multi-account brigading.
+**ProofBoard** is a World ID-verified Q&A platform where every action is proven human. Post questions, share answers, and accept the best response—all protected from bots and Sybil attacks.
 
-## Features
+## 🚀 Quick Start
 
-- 🔐 **Human-only gating**: All actions (post question, post answer, accept answer) require World ID verification
-- 🛡️ **Anti-abuse**: Replay protection via nullifier storage, rate limiting via World Dev Portal
-- 🔒 **Privacy-by-design**: Minimal data collection (wallet + optional username only)
-- 📱 **Mobile-first**: Built with World Mini App UI Kit for native-like experience
+### 1. Install Dependencies
+```bash
+pnpm install
+```
 
-## Getting Started
+### 2. Configure Environment
+Create `.env.local`:
+```env
+# World Mini App (get from developer.worldcoin.org)
+APP_ID=app_xxxxxxxxxxxxx
+NEXT_PUBLIC_APP_ID=app_xxxxxxxxxxxxx
 
-### Prerequisites
+# Incognito Actions (create in Dev Portal)
+NEXT_PUBLIC_ACTION_POST_QUESTION=proofboard_post_question
+NEXT_PUBLIC_ACTION_POST_ANSWER=proofboard_post_answer
+NEXT_PUBLIC_ACTION_ACCEPT_ANSWER=proofboard_accept_answer
+NEXT_PUBLIC_ACTION_LIKE_NOTE=proofboard_like_note
+NEXT_PUBLIC_ACTION_VIEW_NOTE=proofboard_view_note
 
-- Node.js 18+ and pnpm (or npm)
-- World App Developer account at [developer.worldcoin.org](https://developer.worldcoin.org)
-- PostgreSQL database (or SQLite for local dev)
+# Database
+DATABASE_URL="postgresql://..."  # Production
+# DATABASE_URL="file:./dev.db"  # Local dev
 
-### Setup Steps
+# Auth
+NEXTAUTH_SECRET=your_secret_here  # Generate: npx auth secret
+NEXTAUTH_URL=http://localhost:3000
+HMAC_SECRET_KEY=your_random_secret
+```
 
-1. **Clone and install dependencies:**
-   ```bash
-   pnpm install
-   ```
+### 3. Setup Database
+```bash
+pnpm prisma generate
+pnpm prisma migrate deploy
+pnpm db:seed  # Optional: adds sample data
+```
 
-2. **Set up environment variables:**
-   Create a `.env.local` file with the following variables:
-   ```env
-   # World Mini App Configuration
-   APP_ID=app_xxxxxxxxxxxxx                    # From Developer Portal
-   NEXT_PUBLIC_APP_ID=app_xxxxxxxxxxxxx        # Same as APP_ID
-   WORLD_API_KEY=your_world_api_key_here       # Optional
-   
-   # Incognito Action IDs (create in Developer Portal -> Incognito Actions)
-   NEXT_PUBLIC_ACTION_POST_QUESTION=proofboard_post_question
-   NEXT_PUBLIC_ACTION_POST_ANSWER=proofboard_post_answer
-   NEXT_PUBLIC_ACTION_ACCEPT_ANSWER=proofboard_accept_answer
-   NEXT_PUBLIC_ACTION_LIKE_NOTE=proofboard_like_note
-   NEXT_PUBLIC_ACTION_VIEW_NOTE=proofboard_view_note
-   
-   # Database
-   DATABASE_URL="file:./dev.db"                # SQLite for local dev
-   # DATABASE_URL=postgresql://...            # PostgreSQL for production
-   
-   # NextAuth
-   NEXTAUTH_SECRET=$(npx auth secret)         # Generate with: npx auth secret
-   NEXTAUTH_URL=http://localhost:3000
-   
-   # HMAC Secret (generate random string)
-   HMAC_SECRET_KEY=your_random_secret_here
-   ```
+### 4. Run
+```bash
+# Development
+pnpm dev
 
-3. **Create Incognito Actions in Developer Portal:**
-   - Go to [developer.worldcoin.org](https://developer.worldcoin.org)
-   - Navigate to your app → Incognito Actions
-   - Create five actions with **INCREASED LIMITS** for demo:
-     - `proofboard_post_question` - **Recommended: 10 per day** (not 1 per user!)
-     - `proofboard_post_answer` - **Recommended: 20 per day**
-     - `proofboard_accept_answer` - **Recommended: 10 per day**
-     - `proofboard_like_note` - **Recommended: 50 per day** (generous for engagement)
-     - `proofboard_view_note` - **Recommended: 100 per day** (users browse many notes)
-   
-   ⚠️ **IMPORTANT**: The default "1 per user" limit is too restrictive for a Q&A system. Users need to post multiple questions/answers and engage with many notes. Set limits generously for testing and demos.
+# Production
+pnpm build && pnpm start
+```
 
-4. **Set up database:**
-   ```bash
-   pnpm prisma generate
-   pnpm prisma migrate dev
-   ```
-
-5. **Seed initial categories (optional):**
-   ```bash
-   pnpm db:seed (or pnpm run db:seed)
-   ```
-
-6. **Run development server:**
-   ```bash
-   pnpm dev
-   ```
-
-7. **Test in World App:**
-   - Use ngrok or similar: `ngrok http 3000`
-   - Add your ngrok URL to Developer Portal → App Settings
-   - Open World App and scan QR code or use deep link
-
-## Environment Variables
-
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `APP_ID` | World App ID from Developer Portal | ✅ |
-| `NEXT_PUBLIC_APP_ID` | Same as APP_ID (exposed to client) | ✅ |
-| `NEXT_PUBLIC_ACTION_POST_QUESTION` | Incognito Action ID for posting questions | ✅ |
-| `NEXT_PUBLIC_ACTION_POST_ANSWER` | Incognito Action ID for posting answers | ✅ |
-| `NEXT_PUBLIC_ACTION_ACCEPT_ANSWER` | Incognito Action ID for accepting answers | ✅ |
-| `NEXT_PUBLIC_ACTION_LIKE_NOTE` | Incognito Action ID for liking notes | ✅ |
-| `NEXT_PUBLIC_ACTION_VIEW_NOTE` | Incognito Action ID for recording views | ✅ |
-| `DATABASE_URL` | Database connection string | ✅ |
-| `NEXTAUTH_SECRET` | Secret for NextAuth sessions | ✅ |
-| `NEXTAUTH_URL` | Base URL of your app | ✅ |
-| `HMAC_SECRET_KEY` | Secret for nonce signing | ✅ |
-| `WORLD_API_KEY` | World API key (if needed) | ❌ |
-
-## Architecture: Atomic Verification + Write
-
-**Critical Design Decision**: To prevent wasting World ID verification attempts when database writes fail, we use an **atomic transaction pattern**:
-
-1. **Client**: Gets World ID proof from MiniKit (no server verification yet)
-2. **Client**: Sends proof + data to action route (e.g., `/api/questions`)
-3. **Server**: In a single Prisma transaction:
-   - Verifies proof with `verifyCloudProof`
-   - Stores nullifier (anti-replay)
-   - Performs the write (create question/answer/accept)
-4. **Result**: If ANY step fails, the entire transaction rolls back
-   - ✅ No wasted verification attempts
-   - ✅ No "verified but failed to create" errors
-   - ✅ Replay protection is atomic with the action
-
-**Error Codes**:
-- `401` - Unauthorized (no session)
-- `400` - Bad request (missing fields, validation failed)
-- `403` - Forbidden (not question owner, etc)
-- `409` - Replay (proof already used)
-- `500` - Server error
-
-## API Routes
-
-- `GET /api/categories` - List all categories
-- `GET /api/questions?categoryId=xxx` - Get questions for a category
-- `POST /api/questions` - Create a question (requires verify)
-- `GET /api/answers?questionId=xxx` - Get answers for a question
-- `POST /api/answers` - Create an answer (requires verify)
-- `POST /api/accept` - Accept an answer (requires verify, owner only)
-- `POST /api/verify` - Verify World ID proof (server-side)
-- `GET /api/nonce` - Get nonce for wallet auth
-
-## Deployment
-
-### Vercel (Recommended)
-
-1. Push code to GitHub
-2. Import project in Vercel
-3. Add environment variables in Vercel dashboard
-4. Deploy
-
-### Database
-
-For production, use PostgreSQL:
-- Set `DATABASE_URL` to your PostgreSQL connection string
-- Run `npx prisma migrate deploy` after deployment
-
-## Architecture
-
-- **Authentication**: Wallet Auth via MiniKit (not Verify as login)
-- **Verification**: Verify command with Incognito Actions for gating
-- **Anti-replay**: Nullifier hash stored in `ActionProof` table
-- **Rate limiting**: Configured in World Dev Portal per action
-- **Database**: Prisma ORM with PostgreSQL/SQLite
-
-## Security
-
-- ✅ All proofs verified server-side using `verifyCloudProof`
-- ✅ Nullifier hashes stored to prevent replay attacks
-- ✅ Wallet extracted from session (not request body)
-- ✅ 300-character limit enforced server-side
-- ✅ Ownership checks for accept action
-
-## Contributing
-
-This project was built for World Build Korea 2026 hackathon.
-
-## Authentication
-
-This starter kit uses [Minikit's](https://github.com/worldcoin/minikit-js) wallet auth to authenticate users, and [next-auth](https://authjs.dev/getting-started) to manage sessions.
-
-## UI Library
-
-This starter kit uses [Mini Apps UI Kit](https://github.com/worldcoin/mini-apps-ui-kit) to style the app. We recommend using the UI kit to make sure you are compliant with [World App's design system](https://docs.world.org/mini-apps/design/app-guidelines).
-
-## Eruda
-
-[Eruda](https://github.com/liriliri/eruda) is a tool that allows you to inspect the console while building as a mini app. You should disable this in production.
-
-## API Endpoints
-
-### Core CRUD
-
-#### POST /api/questions
-Create a new question (requires World ID verification)
-- **Body**: `{ categoryId, text, proof, signal }`
-- **Signal**: `${categoryId}:${YYYY-MM-DD}`
-- **Returns**: Created question with user info
-
-#### POST /api/answers
-Create a new answer (requires World ID verification)
-- **Body**: `{ questionId, text, proof, signal }`
-- **Signal**: `${questionId}:${YYYY-MM-DD}`
-- **Returns**: Created answer with user info
-
-#### POST /api/accept
-Accept an answer (requires World ID verification, owner only)
-- **Body**: `{ questionId, answerId, proof, signal }`
-- **Signal**: `${questionId}`
-- **Returns**: Updated question with accepted answer
-
-### Engagement
-
-#### POST /api/notes/:id/like
-Toggle like on a note (question or answer)
-- **Body**: `{ proof, signal }` (only for first-time like)
-- **Signal**: `${noteId}`
-- **Returns**: `{ liked: boolean, likeCount: number }`
-- **Strategy**: Verify only on like, no verify on unlike (reduces abuse)
-
-#### POST /api/notes/:id/view
-Record a view on a note (one per human per day)
-- **Body**: `{ proof, signal }`
-- **Signal**: `${noteId}:${YYYY-MM-DD}`
-- **Returns**: `{ viewed: true, viewCount: number }`
-- **Anti-spam**: Day bucket prevents refresh spam
-
-### Note Management
-
-#### GET /api/notes/:id
-Get a single note with all related data
-- **Returns**: Note with user, category, parent, children, counts
-
-#### PATCH /api/notes/:id
-Edit a note (owner only, no World ID needed)
-- **Body**: `{ text }`
-- **Returns**: Updated note
-- **Restrictions**: Text only, max 300 chars
-
-#### DELETE /api/notes/:id
-Soft delete a note (owner only, no World ID needed)
-- **Returns**: `{ success: true, deletedAt }`
-- **Behavior**: Sets deletedAt, clears acceptedAnswerId if applicable
-
-### User Activity
-
-#### GET /api/my/questions
-Get authenticated user's questions
-- **Returns**: Array of questions with category and answer count
-
-#### GET /api/my/answers
-Get authenticated user's answers
-- **Returns**: Array of answers with question context
-
-### Categories
-
-#### GET /api/categories
-Get all categories with note counts
-- **Returns**: Array of categories with `_count.notes`
+### 5. Test in World App
+```bash
+# For local testing
+ngrok http 3000
+# Add ngrok URL to Dev Portal → App Settings
+# Scan QR in World App
+```
 
 ---
 
-## Contributing
+## 🏗️ Architecture
 
-This template was made with help from the amazing [supercorp-ai](https://github.com/supercorp-ai) team.
+### System Overview
+```
+┌─────────────────────────────────────────────────────────────┐
+│                        World App                            │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐     │
+│  │ Wallet Auth  │  │ World ID     │  │   MiniKit    │     │
+│  │  (Login)     │  │   Verify     │  │     SDK      │     │
+│  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘     │
+└─────────┼──────────────────┼──────────────────┼─────────────┘
+          │                  │                  │
+          ▼                  ▼                  ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    ProofBoard Frontend                       │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │  Next.js 15 App Router + React 19                    │  │
+│  │  • Landing Page (Why World ID?)                      │  │
+│  │  • Category Browser (Demo Mode)                      │  │
+│  │  • Question Board (Sticky Notes)                     │  │
+│  │  • My Activity (Questions/Answers)                   │  │
+│  └──────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+          │
+          ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    API Routes (Next.js)                      │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐     │
+│  │ POST /api/   │  │ POST /api/   │  │ POST /api/   │     │
+│  │  questions   │  │   answers    │  │   accept     │     │
+│  │              │  │              │  │              │     │
+│  │ Verify +     │  │ Verify +     │  │ Verify +     │     │
+│  │ Create       │  │ Create       │  │ Update       │     │
+│  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘     │
+└─────────┼──────────────────┼──────────────────┼─────────────┘
+          │                  │                  │
+          ▼                  ▼                  ▼
+┌─────────────────────────────────────────────────────────────┐
+│              Atomic Transaction Layer                        │
+│  ┌────────────────────────────────────────────────────────┐ │
+│  │  1. verifyCloudProof (World ID)                        │ │
+│  │  2. Store nullifier (ActionProof table)                │ │
+│  │  3. Create/Update Note                                 │ │
+│  │  → All or nothing (prevents wasted verifications)     │ │
+│  └────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────┘
+          │
+          ▼
+┌─────────────────────────────────────────────────────────────┐
+│                  Database (PostgreSQL)                       │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐   │
+│  │   User   │  │ Category │  │   Note   │  │ActionProof│  │
+│  │          │  │          │  │          │  │           │   │
+│  │ wallet   │  │   name   │  │  type    │  │ nullifier │   │
+│  │ username │  │          │  │  text    │  │  signal   │   │
+│  └──────────┘  └──────────┘  │ parentId │  │  action   │   │
+│                               │ accepted │  └──────────┘   │
+│                               └──────────┘                  │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Key Design Patterns
+
+**1. Atomic Verification + Write**
+```typescript
+// Prevents wasted World ID verification attempts
+await db.$transaction(async (tx) => {
+  // Step 1: Verify proof
+  const verified = await verifyCloudProof(proof, APP_ID, action, signal);
+  
+  // Step 2: Store nullifier (anti-replay)
+  await tx.actionProof.create({
+    data: { action, nullifier, signal }
+  });
+  
+  // Step 3: Create note
+  await tx.note.create({ data: { ... } });
+  
+  // If ANY step fails, ALL steps rollback
+});
+```
+
+**2. Signal Strategy (Scoped Uniqueness)**
+```typescript
+// Post Question: One per category per day
+signal = `${categoryId}:${YYYY-MM-DD}`
+
+// Post Answer: Multiple per question per day
+signal = `${questionId}:${YYYY-MM-DD}`
+
+// Accept Answer: One per question (permanent)
+signal = `${questionId}`
+```
+
+**3. Asymmetric Verification (Like Toggle)**
+```typescript
+// Like: Requires World ID (first time only)
+// Unlike: No verification (reduces friction)
+// Result: Human-only likes, smooth UX
+```
+
+---
+
+## 🔐 Security Features
+
+| Feature | Implementation | Purpose |
+|---------|----------------|---------|
+| **Server-Side Verification** | `verifyCloudProof` in all POST routes | Prevents client-side proof forgery |
+| **Replay Protection** | `ActionProof` table with unique constraint | Prevents proof reuse |
+| **Atomic Transactions** | Prisma `$transaction` | No wasted verifications |
+| **Rate Limiting** | World Dev Portal per-action limits | Prevents spam even from verified humans |
+| **Soft Delete** | `deletedAt` timestamp | Maintains data integrity |
+| **Session-Based Auth** | NextAuth + Wallet Auth | Secure wallet authentication |
+
+---
+
+## 🛠️ Tech Stack
+
+- **Framework**: Next.js 15 (App Router)
+- **Language**: TypeScript
+- **Database**: PostgreSQL (Prisma ORM)
+- **Auth**: NextAuth.js + World App Wallet Auth
+- **Verification**: World ID (MiniKit SDK)
+- **UI**: Tailwind CSS + World Mini App UI Kit
+- **Deployment**: Vercel
+
+---
+
+## 📦 Project Structure
+
+```
+proofboard/
+├── src/
+│   ├── app/
+│   │   ├── api/              # API routes
+│   │   │   ├── questions/    # POST question (verify)
+│   │   │   ├── answers/      # POST answer (verify)
+│   │   │   ├── accept/       # POST accept (verify)
+│   │   │   └── notes/[id]/   # Like/view/CRUD
+│   │   ├── (protected)/      # Auth-required pages
+│   │   │   └── home/
+│   │   │       ├── thoughts/ # Category list
+│   │   │       └── my/       # User activity
+│   │   └── page.tsx          # Landing (Why World ID)
+│   ├── components/
+│   │   ├── QuestionCard/     # Note display
+│   │   ├── ComposeQuestion/  # Post form
+│   │   ├── CategoryBoard/    # Board view
+│   │   └── verify.ts         # World ID helper
+│   ├── lib/
+│   │   ├── worldActions.ts   # Action IDs
+│   │   └── db.ts             # Prisma client
+│   └── auth/                 # Wallet auth
+├── prisma/
+│   ├── schema.prisma         # Database schema
+│   └── seed.ts               # Sample data
+└── package.json
+```
+
+---
+
+## 🎯 World ID Actions
+
+Configure these in [developer.worldcoin.org](https://developer.worldcoin.org):
+
+| Action ID | Rate Limit | Signal | Purpose |
+|-----------|------------|--------|---------|
+| `proofboard_post_question` | 10/day | `categoryId:date` | Post question |
+| `proofboard_post_answer` | 20/day | `questionId:date` | Post answer |
+| `proofboard_accept_answer` | 10/day | `questionId` | Accept answer |
+| `proofboard_like_note` | 50/day | `noteId` | Like toggle |
+| `proofboard_view_note` | 100/day | `noteId:date` | View tracking |
+
+---
+
+## 🚢 Deployment (Vercel)
+
+### 1. Push to GitHub
+```bash
+git init
+git add .
+git commit -m "Initial commit"
+git remote add origin https://github.com/your-username/proofboard.git
+git push -u origin main
+```
+
+### 2. Import to Vercel
+1. Go to [vercel.com](https://vercel.com)
+2. Click "New Project"
+3. Import your GitHub repo
+4. Add environment variables (same as `.env.local`)
+5. Deploy
+
+### 3. Configure Database
+```bash
+# After first deploy, run migrations
+vercel env pull .env.production
+npx prisma migrate deploy
+npx prisma db seed
+```
+
+### 4. Update World Dev Portal
+- Add Vercel URL to "App Settings"
+- Generate QR code for submission
+
+---
+
+## 📝 API Reference
+
+### Core Actions (Require World ID)
+- `POST /api/questions` - Create question
+- `POST /api/answers` - Create answer
+- `POST /api/accept` - Accept answer
+- `POST /api/notes/:id/like` - Toggle like
+- `POST /api/notes/:id/view` - Record view
+
+### Public Endpoints
+- `GET /api/categories` - List categories
+- `GET /api/questions?categoryId=x` - Get questions
+- `GET /api/my/questions` - User's questions
+- `GET /api/my/answers` - User's answers
+
+---
+
+## 🙏 Credits
+
+Built for **World Build Korea 2026** hackathon.
+
+- [World Foundation](https://world.org) - World ID & MiniKit
+- [Worldcoin Docs](https://docs.world.org) - Mini App guides
+- [Next.js](https://nextjs.org) - Framework
+- [Prisma](https://prisma.io) - ORM

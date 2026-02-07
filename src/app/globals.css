@@ -3,6 +3,38 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  
+  /* Design System Tokens */
+  --primary: #6366f1;
+  --primary-hover: #4f46e5;
+  --primary-light: #eef2ff;
+  
+  --surface: #ffffff;
+  --surface-secondary: #f9fafb;
+  --surface-tertiary: #f3f4f6;
+  
+  --border: #e5e7eb;
+  --border-light: #f3f4f6;
+  
+  --text-primary: #111827;
+  --text-secondary: #6b7280;
+  --text-tertiary: #9ca3af;
+  
+  --success: #10b981;
+  --success-light: #d1fae5;
+  
+  --warning: #fbbf24;
+  --warning-light: #fef3c7;
+  
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.25rem;
+  
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+  --shadow-sticky: 0 2px 8px 0 rgb(0 0 0 / 0.08);
 }
 
 @theme inline {
@@ -20,7 +52,66 @@
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--surface-secondary);
+  color: var(--text-primary);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Utility Classes */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.card-hover {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.sticky-note {
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-sticky);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.sticky-note:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.btn-primary {
+  background: var(--primary);
+  color: white;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  transition: all 0.2s ease;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--primary-hover);
+  transform: scale(1.02);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.input-focus {
+  transition: all 0.2s ease;
+}
+
+.input-focus:focus {
+  outline: none;
+  ring: 2px;
+  ring-color: var(--primary);
+  border-color: var(--primary);
 }
