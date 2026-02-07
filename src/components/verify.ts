@@ -10,6 +10,11 @@ import {
  * Get a World ID proof from MiniKit and return it. The proof is then sent to the
  * action endpoint (e.g. /api/questions, /api/answers), which verifies and stores
  * the nullifier. We do NOT call /api/verify here to avoid double-verify and "already_used".
+ *
+ * When verification is needed: once per protected action. Each "Post question",
+ * "Post answer", or "Accept answer" must use a fresh proof; one proof = one use.
+ * If the user tries to post again without verifying again in the app, the server
+ * returns already_used and the UI shows: "Please try to verify again."
  */
 export async function verifyAndConsume(
   action: string,

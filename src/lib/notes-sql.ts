@@ -196,6 +196,21 @@ export async function getQuestionById(
   return rows[0] ?? null;
 }
 
+/** Count how many answers a user has posted for a given question (max 3 allowed). */
+export async function countUserAnswersForQuestion(
+  questionId: string,
+  userId: string
+): Promise<number> {
+  const rows = await db.$queryRaw<{ count: bigint }[]>(
+    Prisma.sql`
+      SELECT COUNT(*)::bigint AS count
+      FROM "Note"
+      WHERE "type" = 'ANSWER' AND "referenceId" = ${questionId} AND "userId" = ${userId}
+    `
+  );
+  return Number(rows[0]?.count ?? 0);
+}
+
 /** Get all ANSWER notes for a question, with user. */
 export async function getAnswersForQuestion(
   questionId: string
@@ -227,9 +242,7 @@ export async function getMyQuestions(userId: string): Promise<NoteWithUser[]> {
 }
 
 /** Get ANSWER notes by user id (with question id/text/category for enrichment). */
-export async function getMyAnswersWithQuestions(
-  userId: string
-): Promise<
+export async function getMyAnswersWithQuestions(userId: string): Promise<
   (NoteWithUser & {
     question_id: string;
     question_text: string;
@@ -319,9 +332,49 @@ export async function incrementLike(
   return row ? { likesCount: Number(row.likesCount) } : null;
 }
 
-// ---------- Views ----------
+// ---------- Views (unique users) ----------
 
-/** Increment viewsCount for a question. Returns new viewsCount or null if not found. */
+/**
+ * Record a view by a unique user. Only counts each (question, user) once.
+ * If userId is null (anonymous), does nothing and returns current viewsCount.
+ * Returns new viewsCount or null if question not found.
+ */
+export async function recordUniqueView(
+  questionId: string,
+  userId: string | null
+): Promise<{ viewsCount: number } | null> {
+  const exists = await db.$queryRaw<{ id: string }[]>(
+    Prisma.sql`SELECT "id" FROM "Note" WHERE "id" = ${questionId} AND "type" = 'QUESTION' LIMIT 1`
+  );
+  if (!exists[0]) return null;
+
+  if (!userId) {
+    const rows = await db.$queryRaw<{ viewsCount: number }[]>(
+      Prisma.sql`SELECT "viewsCount" FROM "Note" WHERE "id" = ${questionId} LIMIT 1`
+    );
+    return rows[0] ? { viewsCount: Number(rows[0].viewsCount) } : null;
+  }
+
+  await db.$executeRaw(
+    Prisma.sql`
+      INSERT INTO "NoteView" ("id", "noteId", "userId", "createdAt")
+      VALUES (gen_random_uuid()::text, ${questionId}, ${userId}, NOW())
+      ON CONFLICT ("noteId", "userId") DO NOTHING
+    `
+  );
+  const updated = await db.$queryRaw<{ viewsCount: number }[]>(
+    Prisma.sql`
+      UPDATE "Note"
+      SET "viewsCount" = (SELECT COUNT(*)::int FROM "NoteView" WHERE "noteId" = ${questionId})
+      WHERE "id" = ${questionId} AND "type" = 'QUESTION'
+      RETURNING "viewsCount"
+    `
+  );
+  const row = updated[0];
+  return row ? { viewsCount: Number(row.viewsCount) } : null;
+}
+
+/** @deprecated Use recordUniqueView for unique-user counting. */
 export async function incrementView(
   questionId: string
 ): Promise<{ viewsCount: number } | null> {

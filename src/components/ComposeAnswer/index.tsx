@@ -76,13 +76,10 @@ export const ComposeAnswer = ({
         className="input-dark w-full p-3 resize-none text-sm"
       />
 
-      <div className="flex items-center justify-between text-xs">
+      <div className="flex items-center justify-between text-xs text-[var(--text-tertiary)]">
+        <span>Up to 3 answers per question</span>
         <span
-          className={
-            remainingChars < 30
-              ? "text-[var(--accent-rose)]"
-              : "text-[var(--text-tertiary)]"
-          }
+          className={remainingChars < 30 ? "text-[var(--accent-rose)]" : ""}
         >
           {remainingChars} remaining
         </span>

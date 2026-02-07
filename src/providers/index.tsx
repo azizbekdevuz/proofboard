@@ -28,14 +28,34 @@ export function useMiniKitAvailableContext(): boolean | null {
   return useContext(MiniKitAvailableContext);
 }
 
+/** Delays (ms) to retry MiniKit check – World App may inject window.MiniKit shortly after load. */
+const MINIKIT_CHECK_DELAYS = [0, 150, 400, 800];
+
 /**
  * Check MiniKit availability without triggering the library's console.error.
  * Uses window.MiniKit check first so we never call MiniKit.isInstalled() in a normal browser.
+ * Retries a few times so we detect MiniKit when it's injected slightly late (e.g. in World App).
  */
 function useMiniKitAvailable(): boolean | null {
   const [available, setAvailable] = useState<boolean | null>(null);
   useEffect(() => {
-    setAvailable(checkMiniKitAvailable());
+    let cancelled = false;
+    const timeouts: ReturnType<typeof setTimeout>[] = [];
+    MINIKIT_CHECK_DELAYS.forEach((delay, i) => {
+      const t = setTimeout(() => {
+        if (cancelled) return;
+        if (checkMiniKitAvailable()) {
+          setAvailable(true);
+          return;
+        }
+        if (i === MINIKIT_CHECK_DELAYS.length - 1) setAvailable(false);
+      }, delay);
+      timeouts.push(t);
+    });
+    return () => {
+      cancelled = true;
+      timeouts.forEach((t) => clearTimeout(t));
+    };
   }, []);
   return available;
 }

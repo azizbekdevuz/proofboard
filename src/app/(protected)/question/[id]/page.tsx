@@ -10,9 +10,11 @@ import {
 import {
   getQuestionById,
   getAnswersForQuestion as getAnswersForQuestionSql,
-  incrementView,
+  recordUniqueView,
   toNoteApiResponse,
 } from "@/lib/notes-sql";
+import { auth } from "@/auth";
+import { db } from "@/lib/db";
 import { getCategoryName } from "@/lib/categories";
 import { getCategoryGradientClasses } from "@/lib/category-colors";
 
@@ -59,7 +61,13 @@ export default async function QuestionPage({
   } else {
     const dbNote = await getQuestionById(id);
     if (dbNote) {
-      await incrementView(id);
+      const session = await auth();
+      const user = session?.user?.walletAddress
+        ? await db.user.findUnique({
+            where: { wallet: session.user.walletAddress },
+          })
+        : null;
+      await recordUniqueView(id, user?.id ?? null);
       const dbAnswers = await getAnswersForQuestionSql(id);
       note = {
         ...toNoteApiResponse(dbNote),
@@ -91,12 +99,11 @@ export default async function QuestionPage({
 
   return (
     <>
-      <QuestionPageHeader
-        categoryId={serialized.category}
-        title={title}
-      />
+      <QuestionPageHeader categoryId={serialized.category} title={title} />
       <Page.Main
-        className={`p-6 flex flex-col min-h-0 ${getCategoryGradientClasses(serialized.category)}`}
+        className={`p-6 flex flex-col min-h-0 ${getCategoryGradientClasses(
+          serialized.category
+        )}`}
       >
         <QuestionCanvas question={serialized} />
       </Page.Main>

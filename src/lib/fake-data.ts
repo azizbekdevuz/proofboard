@@ -309,6 +309,19 @@ export function addQuestion(params: {
 }
 
 /** Add a new ANSWER note and bump the question's answersNum. */
+/** Count answers by this user (wallet) for a question. Max 3 allowed per user per question. */
+export function countUserAnswersForQuestionFake(
+  questionId: string,
+  wallet: string
+): number {
+  return allNotes().filter(
+    (n) =>
+      n.type === "ANSWER" &&
+      n.referenceId === questionId &&
+      n.user.wallet === wallet
+  ).length;
+}
+
 export function addAnswer(params: {
   questionId: string;
   text: string;
@@ -317,6 +330,8 @@ export function addAnswer(params: {
 }): FakeNote | undefined {
   const question = getNoteById(params.questionId);
   if (!question || question.type !== "QUESTION") return undefined;
+  if (countUserAnswersForQuestionFake(params.questionId, params.wallet) >= 3)
+    return undefined;
 
   const id = `note-${nextId++}`;
   const note: FakeNote = {

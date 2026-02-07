@@ -15,6 +15,7 @@ import {
   createQuestion,
   toNoteApiResponse,
 } from "@/lib/notes-sql";
+import { getVerifyHeaders } from "@/lib/verify-server";
 
 /**
  * GET /api/questions
@@ -44,12 +45,35 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const log = (msg: string, data?: object) =>
+    console.error("[POST /api/questions]", msg, data ?? "");
+
   const session = await auth();
   if (!session?.user?.walletAddress) {
+    log("unauthorized");
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  const { categoryId, text, proof } = await req.json();
+  let body: { categoryId?: string; text?: string; proof?: unknown; signal?: string };
+  try {
+    body = await req.json();
+  } catch (parseErr) {
+    log("req.json() failed", {
+      error: parseErr instanceof Error ? parseErr.message : String(parseErr),
+    });
+    return NextResponse.json(
+      { error: "bad_request", message: "Invalid JSON body" },
+      { status: 400 }
+    );
+  }
+  const { categoryId, text, proof, signal } = body;
+  const verifySignal = signal ?? categoryId;
+  log("body parsed", {
+    categoryId: categoryId ?? null,
+    textLength: typeof text === "string" ? text.length : null,
+    hasProof: Boolean(proof),
+    hasSignal: Boolean(verifySignal),
+  });
 
   if (isFakeDataEnabled()) {
     if (!categoryId || !text) {
@@ -68,14 +92,16 @@ export async function POST(req: NextRequest) {
   }
 
   if (!categoryId || !text) {
+    log("400 bad_request", { categoryId: !!categoryId, text: !!text });
     return NextResponse.json({ error: "bad_request" }, { status: 400 });
   }
   if (text.length > 300) {
+    log("400 too_long", { textLength: text.length });
     return NextResponse.json({ error: "too_long" }, { status: 400 });
   }
 
-  // World ID verification required for posting questions
   if (!proof) {
+    log("403 verification_required");
     return NextResponse.json(
       {
         error: "verification_required",
@@ -97,7 +123,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const app_id = process.env.APP_ID as `app_${string}`;
+  const app_id = process.env.NEXT_PUBLIC_APP_ID as `app_${string}`;
   if (!app_id) {
     return NextResponse.json(
       {
@@ -109,17 +135,43 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const verifyRes = (await verifyCloudProof(
-    proof as ISuccessResult,
-    app_id,
-    action,
-    categoryId
-  )) as VerifyResponseWithDetails;
+  log("calling verifyCloudProof", { action, signal: verifySignal });
+  let verifyRes: VerifyResponseWithDetails;
+  try {
+    verifyRes = (await verifyCloudProof(
+      proof as ISuccessResult,
+      app_id,
+      action,
+      verifySignal,
+      undefined,
+      getVerifyHeaders()
+    )) as VerifyResponseWithDetails;
+  } catch (verifyErr) {
+    log("verifyCloudProof threw", {
+      error: verifyErr instanceof Error ? verifyErr.message : String(verifyErr),
+      stack: verifyErr instanceof Error ? verifyErr.stack : undefined,
+    });
+    return NextResponse.json(
+      {
+        error: "verification_error",
+        message: verifyErr instanceof Error ? verifyErr.message : "Verification request failed",
+      },
+      { status: 400 }
+    );
+  }
 
   if (!verifyRes.success) {
     const errorMessage =
-      verifyRes.error || verifyRes.message || "World ID verification failed.";
-    const errorCode = verifyRes.code ?? "verification_failed";
+      (verifyRes as { error?: string }).error ||
+      (verifyRes as { message?: string }).message ||
+      "World ID verification failed.";
+    const errorCode = (verifyRes as { code?: string }).code ?? "verification_failed";
+    log("400 World ID verify failed", {
+      code: errorCode,
+      message: errorMessage,
+      detail: (verifyRes as { detail?: string }).detail,
+      full: JSON.stringify(verifyRes),
+    });
     return NextResponse.json(
       { error: errorCode, message: errorMessage },
       { status: 400 }
@@ -133,11 +185,12 @@ export async function POST(req: NextRequest) {
   });
 
   if (existingProof) {
+    log("400 already_used", { action });
     return NextResponse.json(
       {
         error: "already_used",
         message:
-          "This verification has already been used. Please verify again.",
+          "The verification has already been used. Please try to verify again.",
       },
       { status: 400 }
     );
@@ -149,7 +202,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         error: "already_used",
-        message: "This verification has already been used.",
+        message:
+          "The verification has already been used. Please try to verify again.",
       },
       { status: 400 }
     );

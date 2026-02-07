@@ -7,10 +7,12 @@ import {
 import {
   getQuestionById,
   getAnswersForQuestion as getAnswersForQuestionSql,
-  incrementView,
+  recordUniqueView,
   toNoteApiResponse,
 } from "@/lib/notes-sql";
 import { getCategoryName } from "@/lib/categories";
+import { auth } from "@/auth";
+import { db } from "@/lib/db";
 
 export async function GET(
   _req: NextRequest,
@@ -36,7 +38,13 @@ export async function GET(
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  await incrementView(id);
+  const session = await auth();
+  const user = session?.user?.walletAddress
+    ? await db.user.findUnique({
+        where: { wallet: session.user.walletAddress },
+      })
+    : null;
+  await recordUniqueView(id, user?.id ?? null);
 
   const answers = await getAnswersForQuestionSql(id);
 

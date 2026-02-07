@@ -20,36 +20,38 @@
 ### Setup Steps
 
 1. **Clone and install dependencies:**
+
    ```bash
    pnpm install
    ```
 
 2. **Set up environment variables:**
    Create a `.env.local` file with the following variables:
+
    ```env
    # World Mini App Configuration
-   APP_ID=app_xxxxxxxxxxxxx                    # From Developer Portal
-   NEXT_PUBLIC_APP_ID=app_xxxxxxxxxxxxx        # Same as APP_ID
+   NEXT_PUBLIC_APP_ID=app_xxxxxxxxxxxxx
    WORLD_API_KEY=your_world_api_key_here       # Optional
-   
+
    # Incognito Action IDs (create in Developer Portal -> Incognito Actions)
    NEXT_PUBLIC_ACTION_POST_QUESTION=proofboard_post_question
    NEXT_PUBLIC_ACTION_POST_ANSWER=proofboard_post_answer
    NEXT_PUBLIC_ACTION_ACCEPT_ANSWER=proofboard_accept_answer
-   
+
    # Database
    DATABASE_URL="file:./dev.db"                # SQLite for local dev
    # DATABASE_URL=postgresql://...            # PostgreSQL for production
-   
+
    # NextAuth
    NEXTAUTH_SECRET=$(npx auth secret)         # Generate with: npx auth secret
    NEXTAUTH_URL=http://localhost:3000
-   
+
    # HMAC Secret (generate random string)
    HMAC_SECRET_KEY=your_random_secret_here
    ```
 
 3. **Create Incognito Actions in Developer Portal:**
+
    - Go to [developer.worldcoin.org](https://developer.worldcoin.org)
    - Navigate to your app → Incognito Actions
    - Create three actions:
@@ -58,17 +60,24 @@
      - `proofboard_accept_answer` (limit: 1 per question)
 
 4. **Set up database:**
+
    ```bash
-   pnpm prisma generate
-   pnpm prisma migrate dev
+   pnpm run db:generate
+   pnpm run db:migrate
    ```
 
+   This repo uses a **single `Note` table** (columns: `category`, `type`, `referenceId`, `viewsCount`, `likesCount`, `answersNum`, etc.). If you see **"Drift detected"** or **"migrations applied to the database but absent from the local migrations directory"**, run `./clean_db.sh` to sync (all data will be lost), then `./start_db.sh` or `./run_dev.sh`.
+
+   **Neon (pooler):** If you get **"cached plan must not change result type"**, add **`&pgbouncer=true`** to `DATABASE_URL` in `.env.local` (e.g. `...?sslmode=require&channel_binding=require&pgbouncer=true`), then restart the dev server.
+
 5. **Seed initial categories (optional):**
+
    ```bash
    pnpm db:seed (or pnpm run db:seed)
    ```
 
 6. **Run development server:**
+
    ```bash
    pnpm dev
    ```
@@ -83,18 +92,17 @@
 
 ## Environment Variables
 
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `APP_ID` | World App ID from Developer Portal | ✅ |
-| `NEXT_PUBLIC_APP_ID` | Same as APP_ID (exposed to client) | ✅ |
-| `NEXT_PUBLIC_ACTION_POST_QUESTION` | Incognito Action ID for posting questions | ✅ |
-| `NEXT_PUBLIC_ACTION_POST_ANSWER` | Incognito Action ID for posting answers | ✅ |
-| `NEXT_PUBLIC_ACTION_ACCEPT_ANSWER` | Incognito Action ID for accepting answers | ✅ |
-| `DATABASE_URL` | Database connection string | ✅ |
-| `NEXTAUTH_SECRET` | Secret for NextAuth sessions | ✅ |
-| `NEXTAUTH_URL` | Base URL of your app | ✅ |
-| `HMAC_SECRET_KEY` | Secret for nonce signing | ✅ |
-| `WORLD_API_KEY` | World API key (if needed) | ❌ |
+| Variable                           | Description                               | Required |
+| ---------------------------------- | ----------------------------------------- | -------- |
+| `NEXT_PUBLIC_APP_ID`               | Same as APP_ID (exposed to client)        | ✅       |
+| `NEXT_PUBLIC_ACTION_POST_QUESTION` | Incognito Action ID for posting questions | ✅       |
+| `NEXT_PUBLIC_ACTION_POST_ANSWER`   | Incognito Action ID for posting answers   | ✅       |
+| `NEXT_PUBLIC_ACTION_ACCEPT_ANSWER` | Incognito Action ID for accepting answers | ✅       |
+| `DATABASE_URL`                     | Database connection string                | ✅       |
+| `NEXTAUTH_SECRET`                  | Secret for NextAuth sessions              | ✅       |
+| `NEXTAUTH_URL`                     | Base URL of your app                      | ✅       |
+| `HMAC_SECRET_KEY`                  | Secret for nonce signing                  | ✅       |
+| `WORLD_API_KEY`                    | World API key (if needed)                 | ❌       |
 
 ## API Routes
 
@@ -119,6 +127,7 @@
 ### Database
 
 For production, use PostgreSQL:
+
 - Set `DATABASE_URL` to your PostgreSQL connection string
 - Run `npx prisma migrate deploy` after deployment
 
